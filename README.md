@@ -27,7 +27,7 @@ pode montar, calcular e revisar a rede junto com o engenheiro.
 ## Instalação
 
 ```bash
-git clone https://github.com/<usuario>/openhidro.git
+git clone https://github.com/mgarvil/openhidro.git
 cd openhidro
 pip install -e ".[mcp,dev]"
 ```
