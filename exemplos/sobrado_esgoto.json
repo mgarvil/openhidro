@@ -1,0 +1,288 @@
+{
+  "sistema": "esgoto",
+  "nome": "Sobrado — 2 banheiros + cozinha + área de serviço",
+  "parametros": {
+    "pavimentos": 2
+  },
+  "nos": [
+    {
+      "id": "LAV2",
+      "x": 1.5,
+      "y": 1,
+      "z": 3.0,
+      "tipo": "ponto",
+      "aparelho": "lavatorio"
+    },
+    {
+      "id": "CH2",
+      "x": 0.5,
+      "y": 1.5,
+      "z": 3.0,
+      "tipo": "ponto",
+      "aparelho": "chuveiro"
+    },
+    {
+      "id": "CS2",
+      "x": 1,
+      "y": 0.6,
+      "z": 2.85,
+      "tipo": "caixa_sifonada"
+    },
+    {
+      "id": "BS2",
+      "x": 2,
+      "y": 0.5,
+      "z": 3.0,
+      "tipo": "ponto",
+      "aparelho": "bacia"
+    },
+    {
+      "id": "J2",
+      "x": 1,
+      "y": 0,
+      "z": 2.78,
+      "rotulo": "junção ramal 2º pav."
+    },
+    {
+      "id": "TQ2",
+      "x": 0,
+      "y": 0,
+      "z": 2.75,
+      "rotulo": "topo do tubo de queda TQ-1"
+    },
+    {
+      "id": "TQ0",
+      "x": 0,
+      "y": 0,
+      "z": -0.4,
+      "rotulo": "pé do TQ-1"
+    },
+    {
+      "id": "LAV1",
+      "x": 1.5,
+      "y": -3,
+      "z": 0.0,
+      "tipo": "ponto",
+      "aparelho": "lavatorio"
+    },
+    {
+      "id": "CH1",
+      "x": 0.5,
+      "y": -2.5,
+      "z": 0.0,
+      "tipo": "ponto",
+      "aparelho": "chuveiro"
+    },
+    {
+      "id": "CS1",
+      "x": 1,
+      "y": -3.4,
+      "z": -0.15,
+      "tipo": "caixa_sifonada"
+    },
+    {
+      "id": "BS1",
+      "x": 2,
+      "y": -3.5,
+      "z": 0.0,
+      "tipo": "ponto",
+      "aparelho": "bacia"
+    },
+    {
+      "id": "J1",
+      "x": 1,
+      "y": -4,
+      "z": -0.3
+    },
+    {
+      "id": "CI1",
+      "x": 4,
+      "y": -4,
+      "z": -0.5,
+      "tipo": "caixa_inspecao"
+    },
+    {
+      "id": "PIA",
+      "x": 6,
+      "y": 2,
+      "z": 0.0,
+      "tipo": "ponto",
+      "aparelho": "pia"
+    },
+    {
+      "id": "CG",
+      "x": 6,
+      "y": 0,
+      "z": -0.3,
+      "tipo": "juncao",
+      "rotulo": "caixa de gordura"
+    },
+    {
+      "id": "TQL",
+      "x": 8,
+      "y": 2,
+      "z": 0.0,
+      "tipo": "ponto",
+      "aparelho": "tanque"
+    },
+    {
+      "id": "MLR",
+      "x": 8.6,
+      "y": 2,
+      "z": 0.0,
+      "tipo": "ponto",
+      "aparelho": "maquina_roupa"
+    },
+    {
+      "id": "CS3",
+      "x": 8,
+      "y": 1,
+      "z": -0.15,
+      "tipo": "caixa_sifonada"
+    },
+    {
+      "id": "CI2",
+      "x": 8,
+      "y": -4,
+      "z": -0.58,
+      "tipo": "caixa_inspecao"
+    },
+    {
+      "id": "REDE",
+      "x": 12,
+      "y": -4,
+      "z": -0.66,
+      "tipo": "saida",
+      "rotulo": "ligação à rede pública"
+    }
+  ],
+  "trechos": [
+    {
+      "id": "E1",
+      "de": "LAV2",
+      "para": "CS2",
+      "tipo": "ramal_descarga",
+      "declividade": 0.02
+    },
+    {
+      "id": "E2",
+      "de": "CH2",
+      "para": "CS2",
+      "tipo": "ramal_descarga",
+      "declividade": 0.02
+    },
+    {
+      "id": "E3",
+      "de": "CS2",
+      "para": "J2",
+      "declividade": 0.02
+    },
+    {
+      "id": "E4",
+      "de": "BS2",
+      "para": "J2",
+      "tipo": "ramal_descarga",
+      "declividade": 0.01
+    },
+    {
+      "id": "E5",
+      "de": "J2",
+      "para": "TQ2",
+      "declividade": 0.01
+    },
+    {
+      "id": "E6",
+      "de": "TQ2",
+      "para": "TQ0",
+      "tipo": "tubo_queda"
+    },
+    {
+      "id": "E7",
+      "de": "TQ0",
+      "para": "CI1",
+      "tipo": "subcoletor",
+      "declividade": 0.02
+    },
+    {
+      "id": "E8",
+      "de": "LAV1",
+      "para": "CS1",
+      "tipo": "ramal_descarga",
+      "declividade": 0.02
+    },
+    {
+      "id": "E9",
+      "de": "CH1",
+      "para": "CS1",
+      "tipo": "ramal_descarga",
+      "declividade": 0.02
+    },
+    {
+      "id": "E10",
+      "de": "CS1",
+      "para": "J1",
+      "declividade": 0.02
+    },
+    {
+      "id": "E11",
+      "de": "BS1",
+      "para": "J1",
+      "tipo": "ramal_descarga",
+      "declividade": 0.01
+    },
+    {
+      "id": "E12",
+      "de": "J1",
+      "para": "CI1",
+      "declividade": 0.01
+    },
+    {
+      "id": "E13",
+      "de": "CI1",
+      "para": "CI2",
+      "tipo": "subcoletor",
+      "declividade": 0.02
+    },
+    {
+      "id": "E14",
+      "de": "PIA",
+      "para": "CG",
+      "tipo": "ramal_descarga",
+      "declividade": 0.02
+    },
+    {
+      "id": "E15",
+      "de": "CG",
+      "para": "CI2",
+      "tipo": "subcoletor",
+      "declividade": 0.02
+    },
+    {
+      "id": "E16",
+      "de": "TQL",
+      "para": "CS3",
+      "tipo": "ramal_descarga",
+      "declividade": 0.02
+    },
+    {
+      "id": "E17",
+      "de": "MLR",
+      "para": "CS3",
+      "tipo": "ramal_descarga",
+      "declividade": 0.02
+    },
+    {
+      "id": "E18",
+      "de": "CS3",
+      "para": "CI2",
+      "declividade": 0.02
+    },
+    {
+      "id": "E19",
+      "de": "CI2",
+      "para": "REDE",
+      "tipo": "coletor",
+      "declividade": 0.02
+    }
+  ]
+}

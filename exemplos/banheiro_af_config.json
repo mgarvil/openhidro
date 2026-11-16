@@ -1,0 +1,17 @@
+{
+  "sistema": "agua_fria",
+  "camadas_tubos": ["HID-AF"],
+  "escala_para_m": 0.01,
+  "tolerancia": 1.0,
+  "raio_aparelho": 30.0,
+  "blocos": {
+    "LAVATORIO*": "lavatorio",
+    "BACIA*": "bacia_caixa_descarga",
+    "CHUVEIRO*": "chuveiro_eletrico",
+    "PIA*": "pia"
+  },
+  "bloco_origem": "RESERVATORIO",
+  "z_origem": 5.0,
+  "z_tubulacao": 2.8,
+  "z_piso": 0.0
+}

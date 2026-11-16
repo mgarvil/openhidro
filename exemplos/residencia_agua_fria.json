@@ -1,0 +1,169 @@
+{
+  "sistema": "agua_fria",
+  "nome": "Banheiro + cozinha (residência térrea)",
+  "parametros": {
+    "nivel_agua_m": 0.0
+  },
+  "nos": [
+    {
+      "id": "RES",
+      "x": 0,
+      "y": 0,
+      "z": 5.0,
+      "tipo": "reservatorio",
+      "rotulo": "Saída da caixa d'água"
+    },
+    {
+      "id": "A",
+      "x": 0,
+      "y": 0,
+      "z": 2.8,
+      "rotulo": "Descida / barrilete"
+    },
+    {
+      "id": "B",
+      "x": 3,
+      "y": 0,
+      "z": 2.8
+    },
+    {
+      "id": "LAV",
+      "x": 3,
+      "y": 1,
+      "z": 0.6,
+      "tipo": "ponto",
+      "aparelho": "lavatorio"
+    },
+    {
+      "id": "BS",
+      "x": 4,
+      "y": 0,
+      "z": 0.3,
+      "tipo": "ponto",
+      "aparelho": "bacia_caixa_descarga"
+    },
+    {
+      "id": "CH",
+      "x": 5,
+      "y": 0,
+      "z": 2.2,
+      "tipo": "ponto",
+      "aparelho": "chuveiro_eletrico"
+    },
+    {
+      "id": "C",
+      "x": 0,
+      "y": 4,
+      "z": 2.8
+    },
+    {
+      "id": "PIA",
+      "x": 1,
+      "y": 4,
+      "z": 1.1,
+      "tipo": "ponto",
+      "aparelho": "pia"
+    },
+    {
+      "id": "TQ",
+      "x": 0,
+      "y": 6,
+      "z": 1.1,
+      "tipo": "ponto",
+      "aparelho": "tanque"
+    },
+    {
+      "id": "ML",
+      "x": 0.6,
+      "y": 6,
+      "z": 0.9,
+      "tipo": "ponto",
+      "aparelho": "lavadora"
+    }
+  ],
+  "trechos": [
+    {
+      "id": "T1",
+      "de": "RES",
+      "para": "A",
+      "conexoes": {
+        "entrada_normal": 1,
+        "registro_gaveta": 1,
+        "joelho_90": 2
+      }
+    },
+    {
+      "id": "T2",
+      "de": "A",
+      "para": "B",
+      "conexoes": {
+        "te_saida_lateral": 1,
+        "registro_gaveta": 1
+      }
+    },
+    {
+      "id": "T3",
+      "de": "B",
+      "para": "LAV",
+      "conexoes": {
+        "te_saida_lateral": 1,
+        "joelho_90": 2
+      }
+    },
+    {
+      "id": "T4",
+      "de": "B",
+      "para": "BS",
+      "conexoes": {
+        "te_passagem_direta": 1,
+        "joelho_90": 2
+      }
+    },
+    {
+      "id": "T5",
+      "de": "B",
+      "para": "CH",
+      "conexoes": {
+        "te_passagem_direta": 1,
+        "joelho_90": 2,
+        "registro_globo": 1
+      }
+    },
+    {
+      "id": "T6",
+      "de": "A",
+      "para": "C",
+      "conexoes": {
+        "te_passagem_direta": 1,
+        "registro_gaveta": 1
+      }
+    },
+    {
+      "id": "T7",
+      "de": "C",
+      "para": "PIA",
+      "conexoes": {
+        "te_saida_lateral": 1,
+        "joelho_90": 2
+      }
+    },
+    {
+      "id": "T8",
+      "de": "C",
+      "para": "TQ",
+      "conexoes": {
+        "te_passagem_direta": 1,
+        "joelho_90": 2
+      }
+    },
+    {
+      "id": "T9",
+      "de": "TQ",
+      "para": "ML",
+      "conexoes": {
+        "te_saida_lateral": 1,
+        "joelho_90": 1
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openhidro"
+version = "0.1.0"
+description = "Software livre de projeto hidrossanitário (NBR 5626 / NBR 8160) com integração ao Claude via MCP"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.10"
+authors = [{ name = "Marcelo Pacifico Garvil" }]
+keywords = ["hidrossanitário", "NBR 5626", "NBR 8160", "água fria", "esgoto", "BIM", "MCP"]
+dependencies = [
+  "ezdxf>=1.1",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.2"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+openhidro = "openhidro.cli:main"
+openhidro-mcp = "openhidro.mcp_server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+openhidro = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

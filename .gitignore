@@ -1,0 +1,8 @@
+__pycache__/
+*.egg-info/
+.pytest_cache/
+saida/
+build/
+dist/
+.venv/
+exemplos/banheiro_af.dxf
