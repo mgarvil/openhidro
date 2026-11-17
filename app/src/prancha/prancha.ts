@@ -173,7 +173,7 @@ function desenharPlanta(doc: jsPDF, e: EntradaPrancha, pav: Pavimento, detalhes:
       doc.setTextColor(...CINZA);
       for (const t of c.textos) {
         const h = t.altura * k;
-        if (h < 1.0 || t.x < bb[0] || t.x > bb[2] || t.y < bb[1] || t.y > bb[3]) continue;
+        if (h < 1.0 || h > 6 || t.x < bb[0] || t.x > bb[2] || t.y < bb[1] || t.y > bb[3]) continue;
         const p = P(t.x, t.y);
         doc.setFontSize(h * PT);
         doc.text(t.texto, p[0], p[1], { angle: (t.rotacao * 180) / Math.PI });
@@ -185,17 +185,28 @@ function desenharPlanta(doc: jsPDF, e: EntradaPrancha, pav: Pavimento, detalhes:
   // tubulação
   const dnDoEl = new Map<string, number>();
   for (const r of redes) for (const t of r.montada.trechos) for (const id of t.elementos) dnDoEl.set(id, Math.max(dnDoEl.get(id) ?? 0, r.dn.get(t.id) ?? 0));
-  doc.setDrawColor(...AZUL); doc.setLineWidth(0.5);
-  for (const x of els) if (x.tipo === "tubo") { const a = P(x.x1, x.y1), b = P(x.x2, x.y2); doc.line(a[0], a[1], b[0], b[1]); }
-  doc.setDrawColor(...OCRE); doc.setLineWidth(0.6);
-  for (const x of els) if (x.tipo === "tubo_esgoto") {
-    const a = P(x.x1, x.y1), b = P(x.x2, x.y2); doc.line(a[0], a[1], b[0], b[1]);
+  for (const r of e.resultado.esgoto ?? []) for (const t of r.montada.trechos) {
+    const d = r.resposta.resultado.trechos.find((x: any) => x.id === t.id)?.dn ?? 0;
+    for (const id of t.elementos) dnDoEl.set(id, Math.max(dnDoEl.get(id) ?? 0, d));
+  }
+  // tubos em faixa: contorno preto e preenchimento claro (largura pelo DN, exagerada 2x)
+  const segs = els.filter(ehSegmento);
+  const largTubo = (x: Elemento) => Math.max(0.7, Math.min(x.tipo === "tubo" ? 1.6 : 1.9, ((dnDoEl.get(x.id) || (x.tipo === "tubo" ? 25 : 100)) * (x.tipo === "tubo" ? 2 : 1) / 1000) * (k / esc)));
+  doc.setLineCap("round"); doc.setLineJoin("round");
+  for (const passo of [0, 1]) for (const x of segs) {
+    const a = P(x.x1, x.y1), b = P(x.x2, x.y2);
+    if (passo === 0) doc.setDrawColor(0, 0, 0);
+    else if (x.tipo === "tubo") doc.setDrawColor(150, 200, 250); else doc.setDrawColor(244, 214, 160);
+    doc.setLineWidth(largTubo(x) + (passo === 0 ? 0.36 : 0));
+    doc.line(a[0], a[1], b[0], b[1]);
+  }
+  for (const x of segs) if (x.tipo === "tubo_esgoto") {   // seta do escoamento
+    const a = P(x.x1, x.y1), b = P(x.x2, x.y2);
     const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    if (L > 8) {   // seta do escoamento
-      const ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L, mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
-      doc.setFillColor(...OCRE);
-      doc.triangle(mx + ux * 1.4, my + uy * 1.4, mx - ux * 1.2 - uy * 0.9, my - uy * 1.2 + ux * 0.9, mx - ux * 1.2 + uy * 0.9, my - uy * 1.2 - ux * 0.9, "F");
-    }
+    if (L <= 8) continue;
+    const ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L, mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, h = largTubo(x) * 0.42;
+    doc.setFillColor(120, 76, 8);
+    doc.triangle(mx + ux * h * 1.6, my + uy * h * 1.6, mx - ux * h - uy * h, my - uy * h + ux * h, mx - ux * h + uy * h, my - uy * h - ux * h, "F");
   }
   doc.setFontSize(1.8 * PT); doc.setTextColor(...OCRE);
   for (const r of e.resultado.esgoto ?? []) {
@@ -297,6 +308,7 @@ function desenharIsometricos(doc: jsPDF, e: EntradaPrancha, detalhes: Detalhe[],
   const cw = larg / cols, ch = alt / linhas;
   const c30 = Math.cos(Math.PI / 6), s30 = 0.5;
   detalhes.forEach((dt, i) => {
+    ocupados = [];
     const cx0 = ax0 + (i % cols) * cw, cy0 = ay0 + Math.floor(i / cols) * ch;
     const g = dt.rede.grafo;
     const nos = [...dt.nos].map((k) => g.nos[k]);
@@ -335,9 +347,50 @@ function desenharIsometricos(doc: jsPDF, e: EntradaPrancha, detalhes: Detalhe[],
     doc.setDrawColor(...CINZA); doc.setLineDashPattern([0.6, 0.6], 0); doc.setLineWidth(0.12);
     for (const a of arestas) if (!a.vertical) { const p = g.nos[a.a], q = g.nos[a.b]; const A = Q(p.x, p.y, zp), B = Q(q.x, q.y, zp); doc.line(A[0], A[1], B[0], B[1]); }
     doc.setLineDashPattern([], 0);
-    // tubos
-    doc.setDrawColor(...AZUL); doc.setLineWidth(0.55);
-    for (const a of arestas) { const p = g.nos[a.a], q = g.nos[a.b]; const A = Q(p.x, p.y, p.z), B = Q(q.x, q.y, q.z); doc.line(A[0], A[1], B[0], B[1]); }
+    // paredes onde a tubulação corre embutida (trechos horizontais abaixo de 2 m): plano vertical claro
+    const pe = Math.min(dt.pav.peDireito || 2.8, 2.8);
+    for (const a of arestas) {
+      if (a.vertical) continue;
+      const p = g.nos[a.a], q = g.nos[a.b];
+      if (p.z - zp > 2.0) continue;
+      const c1 = Q(p.x, p.y, zp), c2 = Q(q.x, q.y, zp), c3 = Q(q.x, q.y, zp + pe), c4 = Q(p.x, p.y, zp + pe);
+      doc.setFillColor(238, 240, 243); doc.setDrawColor(200, 204, 210); doc.setLineWidth(0.1);
+      doc.lines([[c2[0] - c1[0], c2[1] - c1[1]], [c3[0] - c2[0], c3[1] - c2[1]], [c4[0] - c3[0], c4[1] - c3[1]]], c1[0], c1[1], [1, 1], "FD", true);
+    }
+    // tubos em faixa (bifilar): contorno preto e preenchimento claro
+    const wTubo = (d: number) => Math.max(0.6, Math.min(1.8, (d * 2 / 1000) * k));
+    doc.setLineCap("round"); doc.setLineJoin("round");
+    for (const passo of [0, 1]) for (const a of arestas) {
+      const p = g.nos[a.a], q = g.nos[a.b]; const A = Q(p.x, p.y, p.z), B = Q(q.x, q.y, q.z);
+      const d = dt.dn.get(a.trecho) ?? 25;
+      if (passo === 0) doc.setDrawColor(0, 0, 0); else doc.setDrawColor(150, 200, 250);
+      doc.setLineWidth(wTubo(d) + (passo === 0 ? 0.32 : 0));
+      doc.line(A[0], A[1], B[0], B[1]);
+    }
+    // conexões: bolsas nas saídas de cada joelho, tê, bucha (marca mais larga, contornada)
+    const incid = new Map<number, { o: number; d: number }[]>();
+    for (const a of arestas) {
+      const d = dt.dn.get(a.trecho) ?? 25;
+      (incid.get(a.a) ?? incid.set(a.a, []).get(a.a)!).push({ o: a.b, d });
+      (incid.get(a.b) ?? incid.set(a.b, []).get(a.b)!).push({ o: a.a, d });
+    }
+    for (const [ni, es] of incid) {
+      const no = g.nos[ni];
+      if (no.reg) continue;
+      const C = Q(no.x, no.y, no.z);
+      const dirs = es.map((x) => { const o = g.nos[x.o]; const B = Q(o.x, o.y, o.z); const L = Math.hypot(B[0] - C[0], B[1] - C[1]) || 1; return [(B[0] - C[0]) / L, (B[1] - C[1]) / L]; });
+      const reta = es.length === 2 && dirs[0][0] * dirs[1][0] + dirs[0][1] * dirs[1][1] < -0.98 && es[0].d === es[1].d;
+      if (reta || (es.length === 1 && !no.ap)) continue;
+      const azul = !!no.ap;
+      for (const passo of [0, 1]) es.forEach((x, i) => {
+        const w = wTubo(x.d) * 1.55, L = Math.max(1.4, w * 1.5);
+        if (passo === 0) doc.setDrawColor(0, 0, 0); else if (azul) doc.setDrawColor(70, 120, 220); else doc.setDrawColor(120, 175, 235);
+        doc.setLineWidth(w + (passo === 0 ? 0.3 : 0)); doc.setLineCap("butt");
+        doc.line(C[0], C[1], C[0] + dirs[i][0] * L, C[1] + dirs[i][1] * L);
+      });
+      if (azul) { doc.setFillColor(201, 162, 58); doc.circle(C[0], C[1], 0.45, "F"); }   // bucha de latão
+      doc.setLineCap("round");
+    }
     // diâmetros e cotas verticais
     doc.setFontSize(2.0 * PT);
     for (const a of arestas) {
@@ -378,8 +431,13 @@ function desenharIsometricos(doc: jsPDF, e: EntradaPrancha, detalhes: Detalhe[],
         const viz = arestas.find((a) => a.a === p.i || a.b === p.i);
         let ang = 0;
         if (viz) { const o = g.nos[viz.a === p.i ? viz.b : viz.a]; const B = Q(o.x, o.y, o.z); ang = Math.atan2(-(B[1] - A[1]), B[0] - A[0]); }
-        gravata(doc, A[0], A[1], ang, 1.2);
-        if (el?.tipo === "registro") { doc.setFontSize(1.6 * PT); doc.setTextColor(...PRETO); doc.text(MODELOS_REGISTRO[el.modelo].sigla, A[0] + 1.5, A[1] - 1.5); }
+        gravata(doc, A[0], A[1], ang, 1.7);
+        if (el?.tipo === "registro") {
+          const ar = arestas.find((a) => a.a === p.i || a.b === p.i);
+          const d = ar ? dt.dn.get(ar.trecho) : null;
+          const r = d ? ({ 20: '1/2"', 25: '3/4"', 32: '1"', 40: '1.1/4"', 50: '1.1/2"', 60: '2"' } as Record<number, string>)[d] ?? "" : "";
+          chamada(doc, A, [`${MODELOS_REGISTRO[el.modelo].sigla} — ${MODELOS_REGISTRO[el.modelo].nome} ${r}`, el.altura != null ? `h = ${Math.round(el.altura * 100)} cm` : "na horizontal"]);
+        }
       }
     }
     tituloVista(doc, `Detalhe ${dt.nome} — Isométrico`, `${dt.pav.nome} · Escala 1:${den}`, cx0 + 2, cy0 + ch - 5);
@@ -498,11 +556,11 @@ function desenharLegenda(doc: jsPDF, x: number, y: number, w: number): number {
   cabecalho(doc, "Legenda", x, y, w);
   y += 6;
   const itens: [(px: number, py: number) => void, string][] = [
-    [(px, py) => { doc.setDrawColor(...AZUL); doc.setLineWidth(0.5); doc.line(px - 4, py, px + 4, py); }, "Tubulação de água fria — PVC soldável"],
+    [(px, py) => { doc.setDrawColor(0, 0, 0); doc.setLineWidth(1.3); doc.line(px - 4, py, px + 4, py); doc.setDrawColor(150, 200, 250); doc.setLineWidth(1.0); doc.line(px - 4, py, px + 4, py); }, "Tubulação de água fria — PVC soldável"],
     [(px, py) => { doc.setDrawColor(...AZUL); doc.setFillColor(255, 255, 255); doc.setLineWidth(0.3); doc.circle(px, py, 1.1, "FD"); doc.setFillColor(...AZUL); doc.circle(px, py, 0.45, "F"); }, "Ponto de utilização"],
     [(px, py) => gravata(doc, px, py, 0, 1.2), "Registro (RG gaveta · RP pressão · RE esfera)"],
     [(px, py) => balao(doc, px, py, "AF", "", 2.6), "Coluna de água fria"],
-    [(px, py) => { doc.setDrawColor(...OCRE); doc.setLineWidth(0.6); doc.line(px - 4, py, px + 4, py); doc.setFillColor(...OCRE); doc.triangle(px + 1.4, py, px - 1, py - 1, px - 1, py + 1, "F"); }, "Tubulação de esgoto — PVC série normal (seta = escoamento)"],
+    [(px, py) => { doc.setDrawColor(0, 0, 0); doc.setLineWidth(1.9); doc.line(px - 4, py, px + 4, py); doc.setDrawColor(244, 214, 160); doc.setLineWidth(1.55); doc.line(px - 4, py, px + 4, py); doc.setFillColor(120, 76, 8); doc.triangle(px + 1.2, py, px - 0.8, py - 0.7, px - 0.8, py + 0.7, "F"); }, "Tubulação de esgoto — PVC série normal (seta = escoamento)"],
     [(px, py) => { doc.setDrawColor(...OCRE); doc.setFillColor(255, 245, 225); doc.setLineWidth(0.35); doc.rect(px - 1.8, py - 1.8, 3.6, 3.6, "FD"); doc.circle(px, py, 1, "S"); }, "Caixa sifonada (CS) · caixa de inspeção (CI) · ralo (RS)"],
     [(px, py) => { doc.setDrawColor(...OCRE); doc.setFillColor(255, 255, 255); doc.circle(px, py, 2.2, "FD"); doc.setFontSize(1.5 * PT); doc.setTextColor(...OCRE); doc.text("TQ", px, py + 0.6, { align: "center" }); }, "Tubo de queda"],
     [(px, py) => { doc.setDrawColor(...ROXO); doc.setLineDashPattern([1.2, 0.6], 0); doc.setLineWidth(0.3); doc.rect(px - 4, py - 1.5, 8, 3); doc.setLineDashPattern([], 0); }, "Área de detalhe (isométrico)"],
@@ -632,12 +690,23 @@ function balao(doc: jsPDF, x: number, y: number, t1: string, t2: string, r = 3.4
   else doc.text(t1, x, y + 0.7, { align: "center" });
 }
 
+/** Retângulos já ocupados por chamadas na vista atual (evita sobreposição de textos). */
+let ocupados: [number, number, number, number][] = [];
 function chamada(doc: jsPDF, a: [number, number], linhas: string[]) {
-  const bx = a[0] + 4, by = a[1] - 5;
-  doc.setDrawColor(...PRETO); doc.setLineWidth(0.12);
-  doc.line(a[0], a[1], bx, by);
   doc.setFontSize(2.0 * PT); doc.setTextColor(...PRETO);
   const w = Math.max(...linhas.map((l) => doc.getTextWidth(l)));
+  const livre = (bx: number, by: number) => {
+    const r: [number, number, number, number] = [bx - 0.5, by - 3.4, bx + w + 1.5, by + 3.8];
+    return ocupados.every((o) => r[2] < o[0] || r[0] > o[2] || r[3] < o[1] || r[1] > o[3]) ? r : null;
+  };
+  let bx = a[0] + 4, by = a[1] - 5, r = livre(bx, by);
+  const tentativas: [number, number][] = [];
+  for (let k = 1; k <= 8; k++) tentativas.push([4, -5 - 7.5 * k], [4, -5 + 7.5 * k], [-w - 5, -5 - 7.5 * (k - 1)]);
+  for (const [dx, dy] of tentativas) { if (r) break; bx = a[0] + dx; by = a[1] + dy; r = livre(bx, by); }
+  if (!r) { bx = a[0] + 4; by = a[1] - 5; r = [bx, by - 3.4, bx + w + 1, by + 3.8]; }
+  ocupados.push(r);
+  doc.setDrawColor(...PRETO); doc.setLineWidth(0.12);
+  doc.line(a[0], a[1], bx < a[0] ? bx + w + 1 : bx, by);
   doc.line(bx, by, bx + w + 1, by);
   linhas.forEach((l, i) => doc.text(l, bx + 0.5, i ? by + 2.8 : by - 0.9));
 }

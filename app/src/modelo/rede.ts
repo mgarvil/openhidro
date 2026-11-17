@@ -106,22 +106,45 @@ export function montarRedes(elementos: Elemento[], pavimentos: Pavimento[], esca
     for (let k = 0; k < unicos.length - 1; k++) ligar(unicos[k], unicos[k + 1], true, el);
   };
 
-  // Tudo que está na mesma vertical (mesmo x, y) forma uma única pilha, ligada de baixo para cima.
-  const pilhas: { x: number; y: number; nos: Set<NoG>; coluna?: string }[] = [];
-  const pilhaEm = (x: number, y: number) => {
-    let p = pilhas.find((q) => Math.hypot(q.x - x, q.y - y) * escala < TOL);
-    if (!p) { p = { x, y, nos: new Set() }; pilhas.push(p); }
+  // Tudo que está na mesma vertical (mesmo x, y) de um pavimento forma uma pilha, ligada de baixo
+  // para cima (descidas). As colunas formam pilhas que atravessam pavimentos.
+  const pilhas: { x: number; y: number; pav: string | null; nos: Set<NoG>; coluna?: string }[] = [];
+  const pilhaEm = (x: number, y: number, pav: string | null) => {
+    let p = pilhas.find((q) => q.pav === pav && Math.hypot(q.x - x, q.y - y) * escala < TOL);
+    if (!p) { p = { x, y, pav, nos: new Set() }; pilhas.push(p); }
     return p;
   };
   for (const e of elementos) {
     if (!cota.has(e.pavimentoId)) continue;
     if (e.tipo === "aparelho" || e.tipo === "reservatorio") {
-      const p = pilhaEm(e.x, e.y);
+      const p = pilhaEm(e.x, e.y, e.pavimentoId);
       for (const n of nosEm(e.x, e.y, (n) => n.pav === e.pavimentoId)) p.nos.add(n);
       const n = no(e.x, e.y, zDe(e.pavimentoId, e.altura), e.pavimentoId);
       if (e.tipo === "aparelho") n.ap = e; else n.res = e;
       p.nos.add(n);
     }
+  }
+  // descida/subida: pontas de tubo no mesmo x, y e pavimento, em alturas diferentes
+  const pontasPorLugar = new Map<string, Set<NoG>>();
+  for (const t of tubos) for (const [x, y] of [[t.x1, t.y1], [t.x2, t.y2]]) {
+    const k = `${t.pavimentoId}|${Math.round(x * escala / TOL)}|${Math.round(y * escala / TOL)}`;
+    const n = no(x, y, zDe(t.pavimentoId, t.altura), t.pavimentoId);
+    (pontasPorLugar.get(k) ?? pontasPorLugar.set(k, new Set()).get(k)!).add(n);
+  }
+  for (const ns of pontasPorLugar.values()) {
+    if (new Set([...ns].map((n) => Math.round(n.z / TOL_Z))).size < 2) continue;
+    const a = [...ns][0];
+    const p = pilhaEm(a.dx, a.dy, a.pav);
+    for (const n of ns) p.nos.add(n);
+  }
+  // registro numa descida (com altura): vira um nó da pilha naquele ponto
+  for (const e of elementos) {
+    if (e.tipo !== "registro" || e.altura == null || !cota.has(e.pavimentoId)) continue;
+    const p = pilhas.find((q) => q.pav === e.pavimentoId && Math.hypot(q.x - e.x, q.y - e.y) * escala < TOL);
+    if (!p) { avisos.push({ mensagem: "Registro com altura fora de uma descida", elementos: [e.id] }); continue; }
+    const n = no(e.x, e.y, zDe(e.pavimentoId, e.altura), e.pavimentoId);
+    n.reg = e;
+    p.nos.add(n);
   }
   for (const e of elementos) {
     if (e.tipo !== "coluna" || !cota.has(e.pavimentoId)) continue;
@@ -131,13 +154,13 @@ export function montarRedes(elementos: Elemento[], pavimentos: Pavimento[], esca
     const ligados = nosEm(e.x, e.y, (n) => pavsNaFaixa.has(n.pav));
     if (new Set(ligados.map((n) => n.pav)).size < 2)
       avisos.push({ mensagem: "Coluna sem tubos ligados em pelo menos dois pavimentos", elementos: [e.id] });
-    const p = pilhaEm(e.x, e.y);
+    const p = pilhaEm(e.x, e.y, null);
     p.coluna = e.id;
     for (const n of ligados) p.nos.add(n);
   }
   for (const p of pilhas) empilhar([...p.nos], p.coluna);
   for (const e of elementos) {
-    if (e.tipo !== "registro" || !cota.has(e.pavimentoId)) continue;
+    if (e.tipo !== "registro" || e.altura != null || !cota.has(e.pavimentoId)) continue;
     const ns = nosEm(e.x, e.y, (n) => n.pav === e.pavimentoId && n.arestas.length > 0);
     if (!ns.length) avisos.push({ mensagem: "Registro fora de tubo", elementos: [e.id] });
     for (const n of ns) n.reg = e;
@@ -210,6 +233,18 @@ function montarArvore(raiz: NoG, nos: NoG[], arestas: ArestaG[], erros: Problema
   }
 
   const grau = (n: NoG) => n.arestas.length;
+  // conexões que não existem no mercado: derivação em 3 direções sem par alinhado ("tê de canto")
+  for (const k of ordem) {
+    const n = nos[k];
+    if (grau(n) < 3) continue;
+    const ds = n.arestas.map((ai) => { const o = nos[outro(arestas[ai], n.i)]; const v = [o.x - n.x, o.y - n.y, o.z - n.z]; const m = Math.hypot(v[0], v[1], v[2]) || 1; return v.map((c) => c / m); });
+    let pares = 0;
+    for (let i = 0; i < ds.length; i++) for (let j = i + 1; j < ds.length; j++)
+      if (ds[i][0] * ds[j][0] + ds[i][1] * ds[j][1] + ds[i][2] * ds[j][2] < -0.98) pares++;
+    if (pares * 2 + 1 < ds.length || (ds.length === 3 && pares === 0))
+      erros.push({ mensagem: `Derivação em ${ds.length} direções sem saídas alinhadas (tê de canto): essa peça não existe. Afaste a derivação do ponto de descida (tê + joelho)`,
+                   elementos: [...new Set(n.arestas.map((ai) => arestas[ai].el).filter(Boolean) as string[])] });
+  }
   const articulacao = (n: NoG) => n === raiz || !!n.ap || grau(n) !== 2;
   const dir = (de: NoG, para: NoG) => {
     const v = [para.x - de.x, para.y - de.y, para.z - de.z];

@@ -71,3 +71,12 @@ temporário e lê a resposta JSON (ver `src/openhidro/ponte.py`). Não é precis
   dimensiona pela NBR 8160 (UHC, tipo de trecho, DN, declividade mínima); Ø e i% no desenho
 - Materiais de esgoto (tubos, joelhos, junções, reduções, caixas, ralos, terminal de ventilação),
   planta de esgoto na prancha, peças em 3D e sistema SEWAGE no IFC
+
+## 0.8 — correções da revisão do engenheiro
+- Descida automática entre tubos de alturas diferentes no mesmo ponto (tubulação pela parede);
+  registro com altura na descida
+- Pendência para "tê de canto" (peça inexistente)
+- Esgoto: chegada a 45° automática ao desenhar; pendência para ramal a 90° no horizontal
+- Tubos em faixa com contorno preto e preenchimento claro (tela e prancha)
+- Isométrico bifilar com bolsas das conexões, peças com bucha de latão, registros e paredes; chamadas sem sobreposição
+- Ver `docs/regras-de-lancamento.md`

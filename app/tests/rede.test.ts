@@ -80,3 +80,48 @@ describe("ponto sobre o meio do tubo", () => {
     expect(c("LV1")).toBeCloseTo(4.0, 6);
   });
 });
+
+describe("descida na parede com registro", () => {
+  // Reservatório (0,0) saída a 3,0 m; tubo no forro a 2,6 m até (1000,0); tubo na parede a 1,2 m de
+  // (1000,0) a (2000,0); registro de gaveta na descida a 1,8 m; lavatório em (2000,0) a 0,6 m.
+  // Um único trecho: 0,4 + 1,0 + (2,6-1,2 = 1,4) + 1,0 + 0,6 = 4,4 m
+  // Conexões: entrada + registro (saída do reservatório) + registro da descida = 2 registros;
+  // joelhos 90: (0,0,2,6) (1000,0,2,6) (1000,0,1,2) (2000,0,1,2) = 4
+  const els: Elemento[] = [
+    { id: "r", tipo: "reservatorio", pavimentoId: "T", x: 0, y: 0, altura: 3, nivelAgua: 0 },
+    { id: "t1", tipo: "tubo", pavimentoId: "T", x1: 0, y1: 0, x2: 1000, y2: 0, altura: 2.6 },
+    { id: "t2", tipo: "tubo", pavimentoId: "T", x1: 1000, y1: 0, x2: 2000, y2: 0, altura: 1.2 },
+    { id: "rg", tipo: "registro", pavimentoId: "T", x: 1000, y: 0, modelo: "gaveta", altura: 1.8 },
+    { id: "lv", tipo: "aparelho", pavimentoId: "T", chave: "lavatorio", x: 2000, y: 0, altura: 0.6, quantidade: 1 },
+  ];
+  const m = montarRedes(els, [pav("T", 0)], 0.001);
+  it("liga os tubos pela descida e conta o registro", () => {
+    expect(m.erros).toEqual([]);
+    const t = m.redes[0].rede.trechos;
+    expect(t).toHaveLength(1);
+    expect(t[0].comprimento).toBeCloseTo(4.4, 6);
+    expect(t[0].conexoes).toEqual({ entrada_normal: 1, registro_gaveta: 2, joelho_90: 4 });
+    expect(m.redes[0].grafo.nos.some((n) => n.reg === "rg" && Math.abs(n.z - 1.8) < 1e-9)).toBe(true);
+  });
+});
+
+describe("tê de canto", () => {
+  // Coluna descendo em (0,0) e dois tubos saindo a 90° um do outro no mesmo ponto: peça inexistente
+  const els: Elemento[] = [
+    { id: "r", tipo: "reservatorio", pavimentoId: "C", x: 0, y: 0, altura: 0.5, nivelAgua: 0 },
+    { id: "c", tipo: "coluna", pavimentoId: "T", topoId: "C", x: 0, y: 0 },
+    { id: "a", tipo: "tubo", pavimentoId: "T", x1: 0, y1: 0, x2: 1000, y2: 0, altura: 2.2 },
+    { id: "b", tipo: "tubo", pavimentoId: "T", x1: 0, y1: 0, x2: 0, y2: -1000, altura: 2.2 },
+    { id: "l1", tipo: "aparelho", pavimentoId: "T", chave: "lavatorio", x: 1000, y: 0, altura: 0.6, quantidade: 1 },
+    { id: "l2", tipo: "aparelho", pavimentoId: "T", chave: "lavatorio", x: 0, y: -1000, altura: 0.6, quantidade: 1 },
+  ];
+  it("é apontado como pendência", () => {
+    const m = montarRedes(els, [pav("T", 0), pav("C", 3)], 0.001);
+    expect(m.erros.some((e) => /tê de canto/.test(e.mensagem))).toBe(true);
+  });
+  it("com a derivação afastada 10 cm deixa de ser", () => {
+    const ok = els.map((e) => (e.id === "b" ? { ...e, x1: 100, x2: 100 } : e.id === "l2" ? { ...e, x: 100 } : e)) as Elemento[];
+    const m = montarRedes(ok, [pav("T", 0), pav("C", 3)], 0.001);
+    expect(m.erros).toEqual([]);
+  });
+});

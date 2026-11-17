@@ -45,6 +45,18 @@ NBR 5626 água fria e NBR 8160 esgoto). Fluxo recomendado:
    inserirCaixa, inserirTuboQueda. Pontos e tubos se ligam pelas coordenadas exatas: um tubo deve
    terminar exatamente no x,y do ponto, ou passar por ele.
 4. calcular → confira pendências; ajuste; depois materiais, prancha {direto:true}, exportarIfc.
+Boas práticas de lançamento (correções do engenheiro — siga sempre):
+- Água fria embutida na PAREDE: passe os tubos no eixo das paredes (use geometriaPlanta para achar as
+  duas faces e use o meio), nunca soltos no ambiente. Desça pela parede: um tubo na altura do forro e
+  outro na altura do ramal da parede, com as pontas no mesmo x,y, viram descida automaticamente.
+  Ramal na parede: ~1,20 m para mictórios, ~0,90 m para lavatórios, ~0,60 m para bacias com caixa.
+- Registro de gaveta por ambiente, de preferência na descida (inserirRegistro com altura, usual 1,80 m).
+- Não crie "tê de canto" (três saídas sem par alinhado, ex.: coluna descendo com dois tubos a 90° no
+  mesmo ponto): essa peça não existe. Faça a coluna atravessar (tê com passagem vertical) e derive
+  em alturas diferentes, ou afaste a derivação.
+- Esgoto horizontal: ramal secundário entra no primário por junção a 45° (o inserirTuboEsgoto faz a
+  chegada a 45° sozinho quando o tubo termina no meio de outro). Desenhe sempre no sentido do escoamento.
+- Calcule e corrija as pendências antes de gerar prancha e IFC.
 Mostre ao usuário o que vai lançar antes de lançar muitos elementos. Use desfazer se errar.
 Os resultados são preliminares: a responsabilidade técnica é do engenheiro."""
 

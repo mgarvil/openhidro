@@ -9,7 +9,8 @@ describe("rede de esgoto", () => {
   // Banheiro no térreo, tubos a -0,30 m (mm no desenho):
   //  LV (2000,1000) -> CS (2000,0): 0,30 (descida do ponto) + 1,00 = 1,30 m
   //  CH (3000,0)    -> CS:          0,30 + 1,00 = 1,30 m
-  //  CS -> J (1000,0): 1,00 m ;  BS (1000,1000) -> J: 0,30 + 1,00 = 1,30 m ;  J -> SAÍDA (0,0): 1,00 m
+  //  BS (1000,1000) desce até (1000,150) e entra a 45° em J (850,0): 0,30 + 0,85 + 0,15·√2 = 1,3621 m
+  //  CS -> J: 1,15 m ;  J -> SAÍDA (0,0): 0,85 m
   const els: Elemento[] = [
     { id: "lv", tipo: "ponto_esgoto", pavimentoId: "T", chave: "lavatorio", x: 2000, y: 1000, quantidade: 1 },
     { id: "ch", tipo: "ponto_esgoto", pavimentoId: "T", chave: "chuveiro", x: 3000, y: 0, quantidade: 1 },
@@ -19,7 +20,8 @@ describe("rede de esgoto", () => {
     { id: "t1", tipo: "tubo_esgoto", pavimentoId: "T", x1: 2000, y1: 1000, x2: 2000, y2: 0, altura: -0.3, declividade: 0.02 },
     { id: "t2", tipo: "tubo_esgoto", pavimentoId: "T", x1: 3000, y1: 0, x2: 2000, y2: 0, altura: -0.3, declividade: 0.02 },
     { id: "t3", tipo: "tubo_esgoto", pavimentoId: "T", x1: 2000, y1: 0, x2: 0, y2: 0, altura: -0.3, declividade: 0.01 },
-    { id: "t4", tipo: "tubo_esgoto", pavimentoId: "T", x1: 1000, y1: 1000, x2: 1000, y2: 0, altura: -0.3, declividade: 0.01 },
+    { id: "t4", tipo: "tubo_esgoto", pavimentoId: "T", x1: 1000, y1: 1000, x2: 1000, y2: 150, altura: -0.3, declividade: 0.01 },
+    { id: "t5", tipo: "tubo_esgoto", pavimentoId: "T", x1: 1000, y1: 150, x2: 850, y2: 0, altura: -0.3, declividade: 0.01 },
   ];
   const m = montarRedesEsgoto(els, [pav("T", 0)], 0.001);
   it("monta uma rede com 5 trechos no sentido do escoamento", () => {
@@ -32,9 +34,15 @@ describe("rede de esgoto", () => {
     expect(t("LV1").comprimento).toBeCloseTo(1.3, 6);
     expect(t("CH1").comprimento).toBeCloseTo(1.3, 6);
     expect(t("CS1").para).toBe("J1");
-    expect(t("BS1").comprimento).toBeCloseTo(1.3, 6);
+    expect(t("BS1").comprimento).toBeCloseTo(0.3 + 0.85 + 0.15 * Math.SQRT2, 3);
+    expect(t("CS1").comprimento).toBeCloseTo(1.15, 6);
     expect(t("J1").para).toBe("SAIDA");
     expect(t("J1").declividade).toBe(0.01);
+  });
+  it("ramal chegando a 90° no horizontal é erro", () => {
+    const noventa = els.filter((e) => e.id !== "t5").map((e) => (e.id === "t4" ? { ...e, y2: 0 } : e)) as Elemento[];
+    const r = montarRedesEsgoto(noventa, [pav("T", 0)], 0.001);
+    expect(r.erros.some((e) => /45°/.test(e.mensagem))).toBe(true);
   });
   it("sem saída é erro", () => {
     const sem = montarRedesEsgoto(els.filter((e) => e.id !== "sa"), [pav("T", 0)], 0.001);

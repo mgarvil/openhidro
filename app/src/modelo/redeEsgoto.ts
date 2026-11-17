@@ -147,6 +147,24 @@ function arvore(raiz: N, nos: N[], arestas: A[], erros: Problema[], npav: number
       vis.add(o); pai.set(o, ai); ordem.push(o);
     }
   }
+  // ramal secundário chegando a 90° no horizontal: deve entrar por junção a 45°
+  for (const k of ordem) {
+    const n = nos[k];
+    if (n.el || n.arestas.length < 3 || k === raiz.i) continue;
+    const ap = pai.get(k)!;
+    if (arestas[ap].vertical) continue;
+    const dir = (ai: number) => { const o = nos[outro(arestas[ai], k)]; const v = [o.x - n.x, o.y - n.y]; const m = Math.hypot(v[0], v[1]) || 1; return [v[0] / m, v[1] / m]; };
+    const f = dir(ap);   // sentido do escoamento (para jusante)
+    for (const ai of n.arestas) {
+      if (ai === ap || arestas[ai].vertical) continue;
+      const u = dir(ai);
+      const entrada = -(u[0] * f[0] + u[1] * f[1]);   // cosseno entre a chegada e a saída
+      if (entrada < 0.5) {
+        erros.push({ mensagem: "Ramal de esgoto chegando a 90° no horizontal: use junção a 45° (desenhe a chegada inclinada no sentido do escoamento)",
+                     elementos: [arestas[ai].el, arestas[ap].el].filter(Boolean) as string[] });
+      }
+    }
+  }
   const articulacao = (n: N) => n === raiz || !!n.el || n.arestas.length !== 2 ||
     new Set(n.arestas.map((a) => arestas[a].tq)).size > 1;
 

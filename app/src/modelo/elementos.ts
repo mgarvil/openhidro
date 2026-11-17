@@ -27,9 +27,10 @@ export interface ElReservatorio extends Base { tipo: "reservatorio"; x: number; 
 /** Coluna (prumada): trecho vertical em (x, y) que atravessa do pavimento base ao pavimento topo. */
 export interface ElColuna extends Base { tipo: "coluna"; x: number; y: number; topoId: string }
 
+/** Registro no meio de um tubo horizontal, ou numa descida quando tem altura. */
 /** Registro no meio de um tubo (gaveta, pressão ou esfera). Não muda a geometria; entra na perda de
  *  carga do trecho e na lista de materiais. */
-export interface ElRegistro extends Base { tipo: "registro"; x: number; y: number; modelo: "gaveta" | "pressao" | "esfera" }
+export interface ElRegistro extends Base { tipo: "registro"; x: number; y: number; modelo: "gaveta" | "pressao" | "esfera"; altura?: number | null }
 
 // ---- esgoto (NBR 8160)
 export interface AparelhoEsgoto { chave: string; descricao: string; uhc: number; dn_min: number; sifonado: boolean }

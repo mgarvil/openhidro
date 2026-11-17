@@ -14,7 +14,7 @@ export type NomeFerramenta = "selecionar" | "tubo" | "aparelho" | "reservatorio"
   | "ponto_esgoto" | "tubo_esgoto" | "caixa_esgoto" | "tubo_queda" | "saida_esgoto";
 
 export interface Opcoes { aparelhoEs: string; alturaTuboEs: number; declividadeEs: number; modeloCaixa: ElCaixaEsgoto["modelo"]; alturaCaixa: number;
-  modeloRegistro: ElRegistro["modelo"]; alturaTubo: number; aparelho: string; alturaAparelho: number | null; alturaReservatorio: number; nivelAgua: number; colunaTopo: string | null }
+  modeloRegistro: ElRegistro["modelo"]; alturaRegistro: number; alturaTubo: number; aparelho: string; alturaAparelho: number | null; alturaReservatorio: number; nivelAgua: number; colunaTopo: string | null }
 
 interface Snap { x: number; y: number; tipo: "ponto" | "meio" | "orto" | "planta" | "livre" }
 
@@ -41,7 +41,7 @@ const COR = {
 export class Editor {
   ferramenta: NomeFerramenta = "selecionar";
   opcoes: Opcoes = { aparelhoEs: "bacia", alturaTuboEs: -0.3, declividadeEs: 0.02, modeloCaixa: "sifonada", alturaCaixa: -0.3,
-                     modeloRegistro: "gaveta", alturaTubo: 2.6, aparelho: "lavatorio", alturaAparelho: null, alturaReservatorio: 0.5, nivelAgua: 0, colunaTopo: null };
+                     modeloRegistro: "gaveta", alturaRegistro: 1.8, alturaTubo: 2.6, aparelho: "lavatorio", alturaAparelho: null, alturaReservatorio: 0.5, nivelAgua: 0, colunaTopo: null };
   selecao = new Set<string>();
   orto = false;
   snapPlanta = true;
@@ -286,8 +286,10 @@ export class Editor {
         if (Math.hypot(s.x - ax, s.y - ay) * this.vista.pxPorUnidade < 2) return;
         if (this.ferramenta === "tubo")
           this.inserir({ tipo: "tubo", x1: ax, y1: ay, x2: s.x, y2: s.y, altura: this.opcoes.alturaTubo, dn: null });
-        else
-          this.inserir({ tipo: "tubo_esgoto", x1: ax, y1: ay, x2: s.x, y2: s.y, altura: this.opcoes.alturaTuboEs, declividade: this.opcoes.declividadeEs, dn: null });
+        else if (this.inserirTuboEsgoto({ x1: ax, y1: ay, x2: s.x, y2: s.y, altura: this.opcoes.alturaTuboEs, declividade: this.opcoes.declividadeEs }).length > 1) {
+          this.cadeia = null;   // virou junção a 45°: ramal concluído
+          return;
+        }
         // chegou num ponto, reservatório, caixa ou saída: encerra a tubulação
         const alvo = this.visiveis().find((el) => ["aparelho", "reservatorio", "caixa_esgoto", "saida_esgoto"].includes(el.tipo) && !ehSegmento(el) && el.x === s.x && el.y === s.y);
         this.cadeia = alvo ? null : [s.x, s.y];
@@ -299,7 +301,9 @@ export class Editor {
         this.definirFerramenta("selecionar");
       } else if (this.ferramenta === "registro") {
         if (s.tipo !== "meio" && !(s.tipo === "ponto" && this.tuboEm(s.x, s.y))) throw new Error("Clique sobre um tubo para inserir o registro");
-        this.inserir({ tipo: "registro", x: s.x, y: s.y, modelo: this.opcoes.modeloRegistro } as Partial<ElRegistro> & { tipo: "registro" });
+        // na ponta de tubo (descida): registro na parede, na altura escolhida; no meio do tubo: horizontal
+        this.inserir({ tipo: "registro", x: s.x, y: s.y, modelo: this.opcoes.modeloRegistro,
+                       altura: s.tipo === "ponto" ? this.opcoes.alturaRegistro : null } as Partial<ElRegistro> & { tipo: "registro" });
       } else if (this.ferramenta === "ponto_esgoto") {
         this.inserir({ tipo: "ponto_esgoto", chave: this.opcoes.aparelhoEs, x: s.x, y: s.y, quantidade: 1 } as any);
       } else if (this.ferramenta === "caixa_esgoto") {
@@ -337,6 +341,34 @@ export class Editor {
     const dentro = (px: number, py: number) => px >= xa && px <= xb && py >= ya && py <= yb;
     const ids = this.visiveis().filter((el) => ehSegmento(el) ? dentro(el.x1, el.y1) && dentro(el.x2, el.y2) : dentro(el.x, el.y)).map((el) => el.id);
     this.selecionar(ids, somar);
+  }
+
+  /** Insere tubo de esgoto. Se ele termina no meio de outro tubo de esgoto chegando a ~90°, a
+   *  chegada é desviada para 45° no sentido do escoamento (junção simples 45°). */
+  inserirTuboEsgoto(d: { x1: number; y1: number; x2: number; y2: number; altura?: number; declividade?: number; dn?: number | null; pavimentoId?: string; juncao45?: boolean }): Elemento[] {
+    const pav = d.pavimentoId ?? this.pavAtivo.id;
+    const base = { tipo: "tubo_esgoto" as const, altura: d.altura ?? this.opcoes.alturaTuboEs, declividade: d.declividade ?? this.opcoes.declividadeEs, dn: d.dn ?? null, pavimentoId: pav };
+    const L = Math.hypot(d.x2 - d.x1, d.y2 - d.y1);
+    const alvo = d.juncao45 === false || !L ? null : this.p.elementos.find((e) => e.tipo === "tubo_esgoto" && e.pavimentoId === pav &&
+      Math.abs(e.altura - base.altura) < 0.01 && pontoNoMeio(e, d.x2, d.y2, 0.002 / this.p.config.escalaMetro)) as Segmento | undefined;
+    if (alvo) {
+      const fl = Math.hypot(alvo.x2 - alvo.x1, alvo.y2 - alvo.y1);
+      const f = [(alvo.x2 - alvo.x1) / fl, (alvo.y2 - alvo.y1) / fl], b = [(d.x2 - d.x1) / L, (d.y2 - d.y1) / L];
+      const c = Math.min(0.15 / this.p.config.escalaMetro, L * 0.5);
+      const restante = Math.hypot(alvo.x2 - d.x2, alvo.y2 - d.y2);
+      if (Math.abs(f[0] * b[0] + f[1] * b[1]) < 0.3 && restante > c * 1.05) {
+        const K = [d.x2 - c * b[0], d.y2 - c * b[1]], P = [d.x2 + c * f[0], d.y2 + c * f[1]];
+        this.checkpoint();
+        const els = [
+          { ...base, id: novoId("tu"), x1: d.x1, y1: d.y1, x2: K[0], y2: K[1] },
+          { ...base, id: novoId("tu"), x1: K[0], y1: K[1], x2: P[0], y2: P[1] },
+        ] as Elemento[];
+        this.p.elementos.push(...els);
+        this.alterou();
+        return els;
+      }
+    }
+    return [this.inserir({ ...base, x1: d.x1, y1: d.y1, x2: d.x2, y2: d.y2 } as any)];
   }
 
   /** Tubo do pavimento ativo que passa por (x, y). */
@@ -422,29 +454,48 @@ export class Editor {
       ctx.stroke();
     }
 
-    // tubos
-    for (const e of vis) {
-      if (!ehSegmento(e)) continue;
-      const [a, b] = [T(e.x1, e.y1), T(e.x2, e.y2)];
-      const sel = this.selecao.has(e.id), prob = this.problemas.has(e.id) || tuboRuim.has(e.id);
-      if (sel || prob) {
-        ctx.strokeStyle = sel ? COR.sel : COR.ruim;
-        ctx.globalAlpha = 0.35; ctx.lineWidth = 9;
-        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
-        ctx.globalAlpha = 1;
+    // tubos: faixa com contorno escuro e preenchimento claro (largura pelo DN, exagerada 2x)
+    const dnEl = new Map<string, number>();
+    if (res) {
+      for (const r of res.redes) for (const t of r.montada.trechos) {
+        const d = r.resposta.resultado.trechos.find((x: any) => x.id === t.id)?.dn;
+        if (d) for (const id of t.elementos) dnEl.set(id, Math.max(dnEl.get(id) ?? 0, d));
       }
-      const es = e.tipo === "tubo_esgoto";
-      ctx.strokeStyle = prob ? COR.ruim : es ? COR.esgoto : COR.tubo;
-      ctx.lineWidth = es ? 3 : 2.2;
-      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
-      if (es) {   // seta do sentido de escoamento
-        const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
-        if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 30) {
-          ctx.save(); ctx.translate(mx, my); ctx.rotate(ang); ctx.fillStyle = ctx.strokeStyle;
-          ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-4, -4); ctx.lineTo(-4, 4); ctx.closePath(); ctx.fill(); ctx.restore();
-        }
+      for (const r of res.esgoto) for (const t of r.montada.trechos) {
+        const d = r.resposta.resultado.trechos.find((x: any) => x.id === t.id)?.dn;
+        if (d) for (const id of t.elementos) dnEl.set(id, Math.max(dnEl.get(id) ?? 0, d));
       }
     }
+    const segs = vis.filter(ehSegmento);
+    const largura = (e: Segmento) => {
+      const dn = dnEl.get(e.id) ?? e.dn ?? (e.tipo === "tubo" ? 25 : 100);
+      return Math.max(4, Math.min(14, (dn * (e.tipo === "tubo" ? 2 : 1.3) / 1000) * esc));
+    };
+    ctx.lineCap = "round"; ctx.lineJoin = "round";
+    for (const e of segs) {   // destaque de seleção / problema
+      const sel = this.selecao.has(e.id), prob = this.problemas.has(e.id) || tuboRuim.has(e.id);
+      if (!sel && !prob) continue;
+      const [a, b] = [T(e.x1, e.y1), T(e.x2, e.y2)];
+      ctx.strokeStyle = sel ? COR.sel : COR.ruim; ctx.globalAlpha = 0.4; ctx.lineWidth = largura(e) + 10;
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    for (const passo of [0, 1]) for (const e of segs) {
+      const [a, b] = [T(e.x1, e.y1), T(e.x2, e.y2)];
+      const es = e.tipo === "tubo_esgoto", prob = this.problemas.has(e.id) || tuboRuim.has(e.id);
+      ctx.strokeStyle = passo === 0 ? "#000000" : prob ? "#ff9a9a" : es ? "#f2cf8f" : "#9fd2ff";
+      ctx.lineWidth = largura(e) + (passo === 0 ? 2.4 : 0);
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+    }
+    for (const e of segs) {   // seta do sentido de escoamento (esgoto)
+      if (e.tipo !== "tubo_esgoto") continue;
+      const [a, b] = [T(e.x1, e.y1), T(e.x2, e.y2)];
+      if (Math.hypot(b[0] - a[0], b[1] - a[1]) <= 30) continue;
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+      const k = Math.max(3, largura(e) * 0.4);
+      ctx.save(); ctx.translate(mx, my); ctx.rotate(ang); ctx.fillStyle = "#7a4d08";
+      ctx.beginPath(); ctx.moveTo(k * 1.4, 0); ctx.lineTo(-k, -k); ctx.lineTo(-k, k); ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+    ctx.lineCap = "round";
 
     // pontos, reservatórios, colunas
     ctx.textBaseline = "middle";
@@ -623,4 +674,12 @@ export class Editor {
       ctx.fillRect(a[0], a[1], b[0] - a[0], b[1] - a[1]); ctx.strokeRect(a[0], a[1], b[0] - a[0], b[1] - a[1]);
     }
   }
+}
+
+function pontoNoMeio(t: Segmento, x: number, y: number, tol: number) {
+  const L2 = (t.x2 - t.x1) ** 2 + (t.y2 - t.y1) ** 2;
+  if (!L2) return false;
+  const s = ((x - t.x1) * (t.x2 - t.x1) + (y - t.y1) * (t.y2 - t.y1)) / L2;
+  if (s <= 0.001 || s >= 0.999) return false;
+  return Math.hypot(t.x1 + s * (t.x2 - t.x1) - x, t.y1 + s * (t.y2 - t.y1) - y) < tol;
 }

@@ -14,7 +14,7 @@ import { Vista2D } from "./vista/vista2d";
 import { Vista3D } from "./vista/vista3d";
 import { construir3D } from "./modelo/pecas3d";
 
-const VERSAO = "0.7.0";
+const VERSAO = "0.8.0";
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const area = $("area");
@@ -312,18 +312,19 @@ C.registrar({ nome: "ferramenta", descricao: "Ativa uma ferramenta: selecionar, 
   executar: (a?: any) => editor.definirFerramenta((a?.nome ?? a) as NomeFerramenta) });
 C.registrar({ nome: "inserirAparelho", descricao: "Insere ponto de utilização {chave, x, y, altura?, quantidade?, pavimento?}",
   executar: (a: any) => editor.inserir({ tipo: "aparelho", chave: a.chave, x: a.x, y: a.y, altura: a.altura, quantidade: a.quantidade ?? 1, pavimentoId: pavDe(a), rotulo: a.rotulo }).id });
-C.registrar({ nome: "inserirTubo", descricao: "Insere tubo {x1, y1, x2, y2, altura?, dn?, pavimento?}",
+C.registrar({ nome: "inserirTubo", descricao: "Insere tubo horizontal {x1, y1, x2, y2, altura (m acima do piso), dn?, pavimento?}. Pontas de tubos no mesmo x,y com alturas diferentes viram uma descida/subida automática (tubulação descendo pela parede)",
   executar: (a: any) => editor.inserir({ tipo: "tubo", x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2, altura: a.altura, dn: a.dn ?? null, pavimentoId: pavDe(a) }).id });
 C.registrar({ nome: "inserirReservatorio", descricao: "Insere reservatório {x, y, altura?, nivelAgua?, pavimento?}",
   executar: (a: any) => editor.inserir({ tipo: "reservatorio", x: a.x, y: a.y, altura: a.altura, nivelAgua: a.nivelAgua, pavimentoId: pavDe(a), rotulo: a.rotulo ?? editor.proximoRotulo("RES") }).id });
 C.registrar({ nome: "inserirColuna", descricao: "Insere coluna {x, y, pavimento (base), topo}",
   executar: (a: any) => editor.inserir({ tipo: "coluna", x: a.x, y: a.y, pavimentoId: pavDe(a), topoId: pav(a.topo).id, rotulo: a.rotulo ?? editor.proximoRotulo("AF-") }).id });
-C.registrar({ nome: "inserirRegistro", descricao: "Insere registro sobre um tubo {x, y, modelo: gaveta|pressao|esfera, pavimento?}",
-  executar: (a: any) => editor.inserir({ tipo: "registro", x: a.x, y: a.y, modelo: a.modelo ?? "gaveta", pavimentoId: pavDe(a) }).id });
+C.registrar({ nome: "inserirRegistro", descricao: "Insere registro {x, y, modelo: gaveta|pressao|esfera, altura?, pavimento?}. Sem altura: no meio de um tubo horizontal. Com altura (m): numa descida (ponto onde tubos de alturas diferentes se encontram)",
+  executar: (a: any) => editor.inserir({ tipo: "registro", x: a.x, y: a.y, modelo: a.modelo ?? "gaveta", altura: a.altura ?? null, pavimentoId: pavDe(a) } as any).id });
 C.registrar({ nome: "inserirPontoEsgoto", descricao: "Insere ponto de esgoto {chave (bacia, lavatorio, chuveiro…), x, y, quantidade?, pavimento?}",
   executar: (a: any) => editor.inserir({ tipo: "ponto_esgoto", chave: a.chave, x: a.x, y: a.y, quantidade: a.quantidade ?? 1, pavimentoId: pavDe(a) } as any).id });
-C.registrar({ nome: "inserirTuboEsgoto", descricao: "Insere tubo de esgoto no sentido do escoamento {x1, y1, x2, y2, altura?, declividade?, dn?, pavimento?}",
-  executar: (a: any) => editor.inserir({ tipo: "tubo_esgoto", x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2, altura: a.altura, declividade: a.declividade, dn: a.dn ?? null, pavimentoId: pavDe(a) } as any).id });
+C.registrar({ nome: "inserirTuboEsgoto", descricao: "Insere tubo de esgoto no sentido do escoamento {x1, y1, x2, y2, altura?, declividade?, dn?, pavimento?}. Se terminar no meio de outro tubo de esgoto a 90°, a chegada vira junção a 45° automaticamente (juncao45:false desliga)",
+  executar: (a: any) => editor.inserirTuboEsgoto({ x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2, altura: a.altura, declividade: a.declividade, dn: a.dn ?? null,
+    pavimentoId: pavDe(a), juncao45: a.juncao45 }).map((e) => e.id) });
 C.registrar({ nome: "inserirCaixa", descricao: "Insere caixa {modelo: sifonada|inspecao|gordura|ralo, x, y, altura?, pavimento?}",
   executar: (a: any) => editor.inserir({ tipo: "caixa_esgoto", modelo: a.modelo ?? "sifonada", x: a.x, y: a.y, altura: a.altura, pavimentoId: pavDe(a) } as any).id });
 C.registrar({ nome: "inserirTuboQueda", descricao: "Insere tubo de queda {x, y, pavimento (base), topo}",

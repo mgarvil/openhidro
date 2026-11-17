@@ -84,7 +84,8 @@ export class Paineis {
         el.innerHTML = `<h2>Registro</h2><div class="form">
           <label>Tipo</label><select name="modeloRegistro">${Object.entries(MODELOS_REGISTRO).map(([k, m]) =>
             `<option value="${k}" ${o.modeloRegistro === k ? "selected" : ""}>${m.nome}</option>`).join("")}</select>
-          <span class="info">Clique sobre o tubo. O registro entra na perda de carga do trecho e na lista de materiais (com os adaptadores).</span></div>`;
+          <label>Altura na descida (m)</label><input name="alturaRegistro" value="${vf(o.alturaRegistro)}" />
+          <span class="info">No meio de um tubo: registro na horizontal. Na ponta onde o tubo desce pela parede: registro na descida, na altura indicada (usual 1,80 m). Entra na perda de carga e na lista de materiais.</span></div>`;
         break;
       case "coluna": {
         const a = ed.pavAtivo;
@@ -156,7 +157,8 @@ export class Paineis {
           `<option value="${p.id}" ${comum("topoId") === p.id ? "selected" : ""}>${esc(p.nome)}</option>`).join("")}</select>`;
       } else if (t === "registro") {
         campos = `<label>Tipo</label><select name="modelo">${Object.entries(MODELOS_REGISTRO).map(([k, m]) =>
-          `<option value="${k}" ${comum("modelo") === k ? "selected" : ""}>${m.nome}</option>`).join("")}</select>`;
+          `<option value="${k}" ${comum("modelo") === k ? "selected" : ""}>${m.nome}</option>`).join("")}</select>
+          <label>Altura na descida (m)</label><input name="altura" value="${vf(comum("altura"))}" placeholder="no tubo horizontal" />`;
       } else if (t === "coluna") {
         const pavs = this.projeto().pavimentos;
         campos = `<label>Até o pavimento</label><select name="topoId">${pavs.map((p) =>
@@ -176,6 +178,7 @@ export class Paineis {
         else if (k === "declividadePct") { const n = num(inp.value); if (!isFinite(n) || n <= 0) { this.propriedades(); return; }
           this.executar("alterarElementos", { ids, dados: { declividade: n / 100 } }); return; }
         else if (k === "chave" && !inp.value) return;
+        else if (k === "altura" && !inp.value.trim() && sel.every((e) => e.tipo === "registro")) v = null;
         else if (["altura", "quantidade", "nivelAgua"].includes(k)) {
           const n = num(inp.value);
           if (!isFinite(n) || (k === "quantidade" && n <= 0)) { this.propriedades(); return; }
