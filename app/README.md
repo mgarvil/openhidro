@@ -6,7 +6,8 @@ Interface de desktop do OpenHidro (Tauri + TypeScript + Three.js). Ver `../docs/
 
 ```bash
 npm install
-npm run dev          # abre no navegador em http://localhost:1420 (sem recursos de arquivo do Tauri)
+npm run dev          # abre no navegador em http://localhost:1420 (o cálculo usa o Python da máquina: pip install -e ..)
+npm test             # testes da montagem da rede (vitest)
 npx tauri dev        # abre como aplicativo (requer Rust)
 npx tauri build      # gera o instalador em src-tauri/target/release/bundle/
 ```
@@ -18,3 +19,25 @@ npx tauri build      # gera o instalador em src-tauri/target/release/bundle/
   duplo clique no botão do meio = ver tudo
 - Painel de camadas: mostrar/ocultar, Alt+clique isola, filtro por nome
 - Projeto `.ohp`: salvar, abrir (recarrega a planta de fundo e a vista), novo
+
+## M1.1 — pavimentos
+- Cada pavimento tem nome, cota, pé-direito, planta de fundo própria e enquadramento
+
+## M2 — água fria na tela
+- Faixa **Água fria**: Selecionar (S/Esc), Reservatório (R), Tubo (T), Ponto (P), Coluna (C)
+- Tubo: clique os pontos; snap nas pontas, nos pontos e no meio dos tubos (forma tê), nas pontas de
+  linha da planta (F3); Orto (F8 ou Shift); mostra o comprimento enquanto desenha
+- Ponto de utilização: biblioteca de aparelhos gerada do motor (`src/dados/agua_fria.json`,
+  `python scripts/gerar_dados_app.py`); altura padrão de cada aparelho, editável
+- Coluna liga pavimentos; reservatório com altura da saída e lâmina d'água
+- Seleção por clique ou janela, Delete, Ctrl+Z / Ctrl+Y, painel de propriedades (altura, DN fixado…)
+- **Calcular (F5)**: `src/modelo/rede.ts` monta a árvore (descidas, tês, joelhos), o motor Python
+  dimensiona (NBR 5626) e o desenho mostra Ø de cada trecho e a pressão de cada ponto; pendências
+  em vermelho, clicáveis
+- **Memorial**: salva o memorial de cálculo em Markdown
+- Unidade da planta (m, cm, mm) detectada pelo tamanho do desenho e ajustável no painel da planta
+
+### Motor dentro do aplicativo
+O instalador leva o motor Python empacotado com PyInstaller (`binaries/openhidro-motor`, sidecar do
+Tauri), gerado pela CI a partir de `scripts/motor_entrada.py`. O aplicativo grava o pedido num arquivo
+temporário e lê a resposta JSON (ver `src/openhidro/ponte.py`). Não é preciso instalar Python.

@@ -1,0 +1,223 @@
+{
+ "aparelhos": [
+  {
+   "chave": "bacia_caixa_descarga",
+   "descricao": "Bacia sanitária com caixa de descarga",
+   "peso": 0.3,
+   "vazao_ls": 0.15,
+   "pressao_min_kpa": 5.0,
+   "altura_m": 0.3,
+   "dn_min": null
+  },
+  {
+   "chave": "bacia_valvula_descarga",
+   "descricao": "Bacia sanitária com válvula de descarga",
+   "peso": 32.0,
+   "vazao_ls": 1.7,
+   "pressao_min_kpa": null,
+   "altura_m": 1.1,
+   "dn_min": 40
+  },
+  {
+   "chave": "banheira",
+   "descricao": "Banheira (misturador, água fria)",
+   "peso": 1.0,
+   "vazao_ls": 0.3,
+   "pressao_min_kpa": null,
+   "altura_m": 0.55,
+   "dn_min": null
+  },
+  {
+   "chave": "bebedouro",
+   "descricao": "Bebedouro",
+   "peso": 0.1,
+   "vazao_ls": 0.1,
+   "pressao_min_kpa": null,
+   "altura_m": 1.0,
+   "dn_min": null
+  },
+  {
+   "chave": "bide",
+   "descricao": "Bidê (misturador, água fria)",
+   "peso": 0.1,
+   "vazao_ls": 0.1,
+   "pressao_min_kpa": null,
+   "altura_m": 0.3,
+   "dn_min": null
+  },
+  {
+   "chave": "chuveiro",
+   "descricao": "Chuveiro ou ducha (misturador, água fria)",
+   "peso": 0.4,
+   "vazao_ls": 0.2,
+   "pressao_min_kpa": null,
+   "altura_m": 2.2,
+   "dn_min": null
+  },
+  {
+   "chave": "chuveiro_eletrico",
+   "descricao": "Chuveiro elétrico",
+   "peso": 0.1,
+   "vazao_ls": 0.1,
+   "pressao_min_kpa": null,
+   "altura_m": 2.2,
+   "dn_min": null
+  },
+  {
+   "chave": "lavadora",
+   "descricao": "Máquina de lavar pratos ou roupas",
+   "peso": 1.0,
+   "vazao_ls": 0.3,
+   "pressao_min_kpa": null,
+   "altura_m": 0.9,
+   "dn_min": null
+  },
+  {
+   "chave": "lavatorio",
+   "descricao": "Lavatório (torneira ou misturador, água fria)",
+   "peso": 0.3,
+   "vazao_ls": 0.15,
+   "pressao_min_kpa": null,
+   "altura_m": 0.6,
+   "dn_min": null
+  },
+  {
+   "chave": "mictorio_valvula",
+   "descricao": "Mictório cerâmico com sifão integrado e válvula de descarga",
+   "peso": 2.8,
+   "vazao_ls": 0.5,
+   "pressao_min_kpa": null,
+   "altura_m": 1.05,
+   "dn_min": null
+  },
+  {
+   "chave": "mictorio_caixa",
+   "descricao": "Mictório cerâmico sem sifão integrado (caixa, registro ou válvula)",
+   "peso": 0.3,
+   "vazao_ls": 0.15,
+   "pressao_min_kpa": null,
+   "altura_m": 1.05,
+   "dn_min": null
+  },
+  {
+   "chave": "mictorio_calha",
+   "descricao": "Mictório tipo calha (por metro)",
+   "peso": 0.3,
+   "vazao_ls": 0.15,
+   "pressao_min_kpa": null,
+   "altura_m": 1.05,
+   "dn_min": null
+  },
+  {
+   "chave": "pia",
+   "descricao": "Pia — torneira ou misturador (água fria)",
+   "peso": 0.7,
+   "vazao_ls": 0.25,
+   "pressao_min_kpa": null,
+   "altura_m": 1.1,
+   "dn_min": null
+  },
+  {
+   "chave": "pia_torneira_eletrica",
+   "descricao": "Pia — torneira elétrica",
+   "peso": 0.1,
+   "vazao_ls": 0.1,
+   "pressao_min_kpa": null,
+   "altura_m": 1.1,
+   "dn_min": null
+  },
+  {
+   "chave": "tanque",
+   "descricao": "Tanque",
+   "peso": 0.7,
+   "vazao_ls": 0.25,
+   "pressao_min_kpa": null,
+   "altura_m": 1.1,
+   "dn_min": null
+  },
+  {
+   "chave": "torneira_jardim",
+   "descricao": "Torneira de jardim ou lavagem em geral",
+   "peso": 0.4,
+   "vazao_ls": 0.2,
+   "pressao_min_kpa": null,
+   "altura_m": 0.6,
+   "dn_min": null
+  }
+ ],
+ "tubos": {
+  "pvc": [
+   {
+    "material": "pvc",
+    "dn": 20,
+    "referencia": "1/2\"",
+    "di_mm": 17.0
+   },
+   {
+    "material": "pvc",
+    "dn": 25,
+    "referencia": "3/4\"",
+    "di_mm": 21.6
+   },
+   {
+    "material": "pvc",
+    "dn": 32,
+    "referencia": "1\"",
+    "di_mm": 27.8
+   },
+   {
+    "material": "pvc",
+    "dn": 40,
+    "referencia": "1 1/4\"",
+    "di_mm": 35.2
+   },
+   {
+    "material": "pvc",
+    "dn": 50,
+    "referencia": "1 1/2\"",
+    "di_mm": 44.0
+   },
+   {
+    "material": "pvc",
+    "dn": 60,
+    "referencia": "2\"",
+    "di_mm": 53.4
+   },
+   {
+    "material": "pvc",
+    "dn": 75,
+    "referencia": "2 1/2\"",
+    "di_mm": 66.6
+   },
+   {
+    "material": "pvc",
+    "dn": 85,
+    "referencia": "3\"",
+    "di_mm": 75.6
+   },
+   {
+    "material": "pvc",
+    "dn": 110,
+    "referencia": "4\"",
+    "di_mm": 97.8
+   }
+  ]
+ },
+ "conexoes": [
+  "curva_45",
+  "curva_90",
+  "entrada_borda",
+  "entrada_normal",
+  "joelho_45",
+  "joelho_90",
+  "registro_angulo",
+  "registro_gaveta",
+  "registro_globo",
+  "saida_canalizacao",
+  "te_passagem_direta",
+  "te_saida_bilateral",
+  "te_saida_lateral",
+  "valvula_pe_crivo",
+  "valvula_retencao_leve"
+ ]
+}

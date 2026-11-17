@@ -55,3 +55,28 @@ export async function salvarTexto(conteudo: string, nomeSugerido: string, caminh
   URL.revokeObjectURL(a.href);
   return nomeSugerido;
 }
+
+/** Chama o motor de cálculo (Python). Ver src/openhidro/ponte.py. */
+export async function chamarMotor(pedido: unknown): Promise<any> {
+  let texto: string;
+  if (noTauri) {
+    const { Command } = await import("@tauri-apps/plugin-shell");
+    const { tempDir, join } = await import("@tauri-apps/api/path");
+    const { writeTextFile, remove } = await import("@tauri-apps/plugin-fs");
+    const arq = await join(await tempDir(), `openhidro-pedido-${Date.now()}.json`);
+    await writeTextFile(arq, JSON.stringify(pedido));
+    try {
+      const r = await Command.sidecar("binaries/openhidro-motor", ["--entrada", arq]).execute();
+      if (!r.stdout) throw new Error(r.stderr || `o motor de cálculo saiu com código ${r.code}`);
+      texto = r.stdout;
+    } finally {
+      remove(arq).catch(() => {});
+    }
+  } else {
+    const r = await fetch("/api/motor", { method: "POST", body: JSON.stringify(pedido) });
+    texto = await r.text();
+  }
+  const resp = JSON.parse(texto);
+  if (!resp.ok) throw new Error(resp.erro);
+  return resp;
+}

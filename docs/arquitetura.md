@@ -94,3 +94,12 @@ nome, cota do piso, pé-direito, planta de fundo própria e seu enquadramento de
 - Formato `.ohp` versão 2; arquivos da versão 1 viram um pavimento "Térreo".
 - Futuro: deslocamento de alinhamento por planta (quando os DXF dos pavimentos não estão na mesma
   origem) e exibir o pavimento de baixo esmaecido como referência.
+
+## Motor dentro do aplicativo (M2)
+
+O motor Python vai empacotado no instalador como executável único (PyInstaller), declarado como
+*sidecar* do Tauri (`bundle.externalBin`). A interface monta a rede em TypeScript
+(`app/src/modelo/rede.ts`), grava o pedido num arquivo temporário e chama
+`openhidro-motor --entrada pedido.json`; a resposta (resultado + memorial) volta em JSON pela saída
+padrão. Assim existe **um único motor de cálculo** — o mesmo da linha de comando e do servidor MCP — e
+as tabelas normativas continuam só em Python (o catálogo que a interface usa é gerado delas).

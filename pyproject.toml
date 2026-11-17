@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openhidro"
-version = "0.1.0"
+version = "0.2.0"
 description = "Software livre de projeto hidrossanitário (NBR 5626 / NBR 8160) com integração ao Claude via MCP"
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -22,6 +22,7 @@ dev = ["pytest>=7"]
 [project.scripts]
 openhidro = "openhidro.cli:main"
 openhidro-mcp = "openhidro.mcp_server:main"
+openhidro-motor = "openhidro.ponte:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,5 +1,12 @@
 // Arquivo de projeto .ohp (JSON). Ver docs/arquitetura.md.
 import type { EstadoVista } from "./vista/vista2d";
+import type { Elemento } from "./modelo/elementos";
+
+export interface ConfigProjeto {
+  escalaMetro: number;          // metros por unidade do desenho (mm = 0,001)
+  alturaTubo: number;           // m acima do piso — padrão da ferramenta Tubo
+}
+export const configPadrao = (): ConfigProjeto => ({ escalaMetro: 0.001, alturaTubo: 2.6 });
 
 export interface Fundo {
   nome: string;
@@ -25,7 +32,8 @@ export interface Projeto {
   alteradoEm: string;
   pavimentos: Pavimento[];      // ordenados de baixo para cima
   pavimentoAtivo: string;
-  elementos: unknown[];         // M2: aparelhos, nós e trechos (cada um com pavimentoId)
+  elementos: Elemento[];        // aparelhos, tubos, reservatórios, colunas (cada um com pavimentoId)
+  config: ConfigProjeto;
   historico: { comando: string; quando: string; dados?: unknown }[];
 }
 
@@ -40,7 +48,7 @@ export function novoProjeto(nome = "Projeto sem título"): Projeto {
   const agora = new Date().toISOString();
   const terreo = novoPavimento("Térreo", 0);
   return { formato: "openhidro-projeto", versao: 2, nome, criadoEm: agora, alteradoEm: agora,
-           pavimentos: [terreo], pavimentoAtivo: terreo.id, elementos: [], historico: [] };
+           pavimentos: [terreo], pavimentoAtivo: terreo.id, elementos: [], config: configPadrao(), historico: [] };
 }
 
 export function lerProjeto(texto: string): Projeto {
@@ -52,10 +60,12 @@ export function lerProjeto(texto: string): Projeto {
     t.fundo = p.fundo ?? null;
     t.vista = p.vista ?? null;
     return { formato: "openhidro-projeto", versao: 2, nome: p.nome, criadoEm: p.criadoEm, alteradoEm: p.alteradoEm,
-             pavimentos: [t], pavimentoAtivo: t.id, elementos: p.elementos ?? [], historico: p.historico ?? [] };
+             pavimentos: [t], pavimentoAtivo: t.id, elementos: p.elementos ?? [], config: configPadrao(), historico: p.historico ?? [] };
   }
   if (p.versao !== 2) throw new Error(`Versão de projeto ${p.versao} não suportada`);
   if (!p.pavimentos?.length) throw new Error("Projeto sem pavimentos");
+  p.elementos ??= [];
+  p.config = { ...configPadrao(), ...(p.config ?? {}) };
   return p as Projeto;
 }
 

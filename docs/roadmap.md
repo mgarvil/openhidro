@@ -13,7 +13,8 @@ instalador para Windows testado em projeto real.
 
 ## Aplicativo
 - [x] **M1 — Esqueleto**: abrir DXF de fundo, zoom/pan, camadas, salvar/abrir projeto `.ohp`, instalador Windows
-- [ ] **M2 — Água fria na tela**: biblioteca de aparelhos, desenho de tubulação com snap, botão Calcular, diâmetros no desenho, trechos com problema em destaque
+- [x] **M2 — Água fria na tela**: biblioteca de aparelhos, desenho de tubulação com snap, botão Calcular, diâmetros no desenho, trechos com problema em destaque
+- [ ] **M2.1 — Edição**: mover/copiar/espelhar elementos, propriedades em lote, registros e conexões editáveis por trecho, cotas, prumada em vista de corte, snap em interseções da planta
 - [ ] **M3 — Claude no programa**: servidor MCP do aplicativo (os mesmos comandos do mouse), receitas de lançamento, aprendizado por correção
 - [ ] **M4 — Esgoto, 3D e exportação**: rede de esgoto, vista 3D, exportação IFC/DXF, memorial
 - [ ] **M5 — Pranchas e detalhes**: folhas com selo, isométricos, detalhes de banheiro, PDF

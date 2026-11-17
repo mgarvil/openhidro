@@ -10,6 +10,8 @@ oficial da ABNT por um colaborador que tenha a norma.
 | Q = 0,3·√ΣP | `nbr5626.py` | NBR 5626:1998 | Conferido |
 | Velocidade máxima 3 m/s | `ParametrosAguaFria` | NBR 5626 | Conferido; ajustável |
 | Pressões mínimas (10 kPa no ponto, 5 kPa na caixa de descarga e na rede) e estática máx. 400 kPa | `ParametrosAguaFria` | NBR 5626:1998 | Pendente de conferência com a edição de 2020; ajustável |
+| Pressão mínima na válvula de descarga | `APARELHOS_AF["bacia_valvula_descarga"]` | NBR 5626:1998 / fabricantes | **Pendente**: hoje usa o mínimo geral de 10 kPa; a literatura e os fabricantes indicam valor maior para válvula de descarga (conferir na norma e no catálogo da válvula adotada) |
+| Conexões contadas automaticamente pelo aplicativo | `app/src/modelo/rede.ts` | Critério do OpenHidro | Joelho em cada mudança de direção, tê (passagem direta ou saída lateral) em cada derivação, entrada + registro de gaveta na saída do reservatório. Não conta registros dos ramais nem a conexão de saída do ponto — revisar no memorial |
 | Diâmetros internos PVC soldável | `TUBOS_PVC_SOLDAVEL` | Catálogos de fabricantes (NBR 5648) | Pendente — conferir com catálogo atual |
 | Comprimentos equivalentes PVC | `LEQ_PVC` | Catálogos de fabricantes | Joelhos, tês, registros, entrada/saída: valores usuais. **Curvas, entrada de borda, registro de ângulo, válvula de retenção e válvula de pé: pendentes** |
 | Fair-Whipple-Hsiao (PVC e galvanizado) | `perda_unitaria_fwh` | Literatura técnica | Conferido |

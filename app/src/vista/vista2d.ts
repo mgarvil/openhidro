@@ -24,6 +24,13 @@ export class Vista2D {
   private pendente = false;
   onCursor: (x: number, y: number) => void = () => {};
   onMudouVista: () => void = () => {};
+  /** Ferramentas de lançamento: coordenadas do desenho e da tela (px). */
+  onEsquerdoBaixo: (x: number, y: number, px: number, py: number, e: PointerEvent) => void = () => {};
+  onEsquerdoCima: (x: number, y: number, px: number, py: number, e: PointerEvent) => void = () => {};
+  onMover: (x: number, y: number, px: number, py: number, e: PointerEvent) => void = () => {};
+  onDireito: (x: number, y: number) => void = () => {};
+  /** Desenha os elementos do projeto por cima da planta (canvas 2D). */
+  sobreposicao: ((ctx: CanvasRenderingContext2D) => void) | null = null;
 
   constructor(private host: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -98,6 +105,25 @@ export class Vista2D {
     this.agendar();
   }
 
+  paraTela(x: number, y: number): [number, number] {
+    return [(x - this.origem.x - this.cx) * this.escala + this.largura / 2,
+            -(y - this.origem.y - this.cy) * this.escala + this.altura / 2];
+  }
+
+  /** pixels por unidade do desenho */
+  get pxPorUnidade() { return this.escala; }
+  get tamanho() { return { largura: this.largura, altura: this.altura }; }
+  redesenhar() { this.agendar(); }
+
+  /** Enquadra um retângulo (coordenadas do desenho). */
+  enquadrar(xmin: number, ymin: number, xmax: number, ymax: number, margem = 1.3) {
+    const w = Math.max(xmax - xmin, 1e-6), h = Math.max(ymax - ymin, 1e-6);
+    this.cx = (xmin + xmax) / 2 - this.origem.x;
+    this.cy = (ymin + ymax) / 2 - this.origem.y;
+    this.escala = Math.min(this.largura / (w * margem), this.altura / (h * margem));
+    this.agendar();
+  }
+
   telaParaDesenho(px: number, py: number): [number, number] {
     const x = this.cx + (px - this.largura / 2) / this.escala;
     const y = this.cy - (py - this.altura / 2) / this.escala;
@@ -140,9 +166,25 @@ export class Vista2D {
       this.agendar();
     }, { passive: false });
 
+    let inicioDireito: { x: number; y: number } | null = null;
+    let movido = 0;
+    const local = (e: PointerEvent) => {
+      const r = el.getBoundingClientRect();
+      const px = e.clientX - r.left, py = e.clientY - r.top;
+      const [x, y] = this.telaParaDesenho(px, py);
+      return { x, y, px, py };
+    };
     el.addEventListener("pointerdown", (e) => {
+      if (e.button === 0 && !espaco) {
+        const l = local(e);
+        el.setPointerCapture(e.pointerId);
+        this.onEsquerdoBaixo(l.x, l.y, l.px, l.py, e);
+        return;
+      }
       if (e.button === 1 || e.button === 2 || (e.button === 0 && espaco)) {
         arrastando = true;
+        movido = 0;
+        inicioDireito = e.button === 2 ? { x: e.clientX, y: e.clientY } : null;
         ultimo = { x: e.clientX, y: e.clientY };
         el.setPointerCapture(e.pointerId);
         el.style.cursor = "grabbing";
@@ -153,15 +195,24 @@ export class Vista2D {
       const r = el.getBoundingClientRect();
       const [x, y] = this.telaParaDesenho(e.clientX - r.left, e.clientY - r.top);
       this.onCursor(x, y);
-      if (!arrastando) return;
+      if (!arrastando) { this.onMover(x, y, e.clientX - r.left, e.clientY - r.top, e); return; }
+      movido += Math.abs(e.clientX - ultimo.x) + Math.abs(e.clientY - ultimo.y);
       this.cx -= (e.clientX - ultimo.x) / this.escala;
       this.cy += (e.clientY - ultimo.y) / this.escala;
       ultimo = { x: e.clientX, y: e.clientY };
       this.agendar();
     });
     const soltar = (e: PointerEvent) => {
+      if (e.button === 0 && !arrastando) {
+        const l = local(e);
+        if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+        this.onEsquerdoCima(l.x, l.y, l.px, l.py, e);
+        return;
+      }
       if (!arrastando) return;
       arrastando = false;
+      if (inicioDireito && movido < 5) { const l = local(e); this.onDireito(l.x, l.y); }
+      inicioDireito = null;
       el.releasePointerCapture(e.pointerId);
       el.style.cursor = espaco ? "grab" : "";
     };
@@ -194,6 +245,13 @@ export class Vista2D {
     this.camera.updateProjectionMatrix();
     this.renderer.render(this.cena, this.camera);
     this.desenharTextos();
+    if (this.sobreposicao) {
+      const dpr = window.devicePixelRatio;
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      this.ctx.save();
+      this.sobreposicao(this.ctx);
+      this.ctx.restore();
+    }
     this.onMudouVista();
   }
 

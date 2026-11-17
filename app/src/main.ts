@@ -1,9 +1,13 @@
 import { carregarDxf, decodificarDxf, type Desenho } from "./dxf/carregar";
 import * as C from "./comandos";
-import { escolherArquivo, lerCaminho, salvarTexto } from "./plataforma";
+import { Editor, type NomeFerramenta, type ResultadoCalculo } from "./editor";
+import { aplicarDnImposto, montarRedes } from "./modelo/rede";
+import { chamarMotor, escolherArquivo, lerCaminho, salvarTexto } from "./plataforma";
 import { lerProjeto, novoPavimento, novoProjeto, ordenarPavimentos, serializar, type Pavimento, type Projeto } from "./projeto";
 import { PainelCamadas } from "./ui/camadas";
+import { Paineis } from "./ui/paineis";
 import { PainelPavimentos } from "./ui/pavimentos";
+import { IndicePontas } from "./vista/indice";
 import { Vista2D } from "./vista/vista2d";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -17,6 +21,7 @@ let caminhoProjeto: string | null = null;
 const desenhos = new Map<string, Desenho>();
 let desenho: Desenho | null = null;   // o do pavimento ativo
 let alterado = false;
+const editor = new Editor(vista, area, () => projeto);
 
 const ativo = (): Pavimento => projeto.pavimentos.find((p) => p.id === projeto.pavimentoAtivo) ?? projeto.pavimentos[0];
 const pav = (id: string) => {
@@ -60,9 +65,28 @@ function mostrarInfo(d: Desenho | null) {
   el.innerHTML = `<h2>Planta de fundo</h2>
     <b>${esc(d.nome)}</b><br>
     ${d.camadas.size} camadas · ${d.totalSegmentos.toLocaleString("pt-BR")} segmentos<br>
-    Unidade: ${d.unidade}<br>
-    Extensão: ${fmtN(e.xmax - e.xmin)} × ${fmtN(e.ymax - e.ymin)}
+    Extensão: ${fmtN(e.xmax - e.xmin)} × ${fmtN(e.ymax - e.ymin)} (${d.unidade})<br>
+    <label class="unid">Desenho em <select id="escalaDesenho">${ESCALAS.map(([u, k]) =>
+      `<option value="${k}" ${Math.abs(k - projeto.config.escalaMetro) < 1e-12 ? "selected" : ""}>${u}</option>`).join("")}</select>
+      → ${fmtN((e.xmax - e.xmin) * projeto.config.escalaMetro)} m de largura</label>
     ${d.avisos.map((a) => `<div class="aviso">⚠ ${esc(a)}</div>`).join("")}`;
+  el.querySelector<HTMLSelectElement>("#escalaDesenho")!.addEventListener("change", (ev) => {
+    projeto.config.escalaMetro = Number((ev.target as HTMLSelectElement).value);
+    editor.resultado = null; editor.problemas.clear();
+    paineis.resultados(); vista.redesenhar(); marcarAlterado(); mostrarInfo(d);
+    mensagem("Unidade do desenho alterada: comprimentos recalculados com a nova escala.");
+  });
+}
+/** Metros por unidade do desenho: usa $INSUNITS se o tamanho fizer sentido para uma edificação,
+ *  senão escolhe a unidade em que a planta mede entre 5 m e 5 km (preferindo m, depois mm). */
+const ESCALAS: [string, number][] = [["mm", 0.001], ["cm", 0.01], ["m", 1]];
+const PREFERENCIA = [1, 0.001, 0.01];   // m e mm são as unidades usuais; cm por último
+function adivinharEscala(d: Desenho): number {
+  const e = d.extensaoPrincipal, vao = Math.max(e.xmax - e.xmin, e.ymax - e.ymin);
+  const ok = (k: number) => vao * k >= 5 && vao * k <= 5000;
+  const decl = ESCALAS.find(([u]) => u === d.unidade)?.[1];
+  if (decl && ok(decl)) return decl;
+  return PREFERENCIA.find(ok) ?? decl ?? 0.001;
 }
 const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!);
 
@@ -75,6 +99,41 @@ const painelPavs = new PainelPavimentos($("listaPavimentos"), $("addPavimento"),
 });
 const atualizarPavs = () => painelPavs.carregar(projeto.pavimentos, projeto.pavimentoAtivo);
 
+// ------------------------------------------------------------ lançamento
+const paineis = new Paineis(editor, () => projeto, (n, a) => C.executar(n, a).catch((e) => mensagem(String(e?.message ?? e), true)),
+  (ids) => irPara(ids), $("painelFerramenta"), $("painelPropriedades"), $("painelResultados"));
+editor.mensagem = (t, erro) => mensagem(t, erro);
+editor.aoAlterar = () => { marcarAlterado(); paineis.resultados(); atualizarVazio(); };
+editor.aoMudarSelecao = () => paineis.propriedades();
+editor.aoMudarFerramenta = () => {
+  document.querySelectorAll<HTMLButtonElement>("[data-ferramenta]").forEach((b) => b.classList.toggle("ativa", b.dataset.ferramenta === editor.ferramenta));
+  paineis.ferramenta();
+};
+
+// snap nas pontas de linha da planta do pavimento ativo (índice criado na primeira vez que é usado)
+const indices = new WeakMap<Desenho, IndicePontas>();
+editor.pontaPlanta = (x, y, tol) => {
+  if (!desenho) return null;
+  let ind = indices.get(desenho);
+  if (!ind) indices.set(desenho, (ind = new IndicePontas(desenho, 0.5 / projeto.config.escalaMetro)));
+  return ind.maisProximo(x, y, tol, new Set(ativo().fundo?.camadasOcultas ?? []));
+};
+
+/** Mostra elementos: troca para o pavimento deles, seleciona e enquadra. */
+function irPara(ids: string[]) {
+  const els = projeto.elementos.filter((e) => ids.includes(e.id));
+  if (!els.length) return;
+  const pavs = new Set(els.filter((e) => e.tipo !== "coluna").map((e) => e.pavimentoId));
+  if (pavs.size && !pavs.has(projeto.pavimentoAtivo)) ativarPavimento([...pavs][0]);
+  editor.selecionar(els.map((e) => e.id));
+  editor.enquadrarElementos(els.map((e) => e.id));
+}
+
+function atualizarVazio() {
+  const temAlgo = !!desenho || projeto.elementos.some((e) => e.pavimentoId === projeto.pavimentoAtivo);
+  $("vazio").hidden = temAlgo;
+}
+
 /** Mostra na tela o pavimento ativo: sua planta, camadas ocultas e enquadramento. */
 function mostrarPavimentoAtivo() {
   const a = ativo();
@@ -84,7 +143,9 @@ function mostrarPavimentoAtivo() {
   painel.carregar(desenho ? [...desenho.camadas.values()] : [], ocultas);
   if (desenho) for (const n of ocultas) vista.definirVisivel(n, false);
   if (desenho && a.vista) vista.restaurar(a.vista);
-  $("vazio").hidden = !!desenho;
+  atualizarVazio();
+  if (editor.ferramenta === "tubo") editor.definirFerramenta("tubo");   // encerra tubulação em curso
+  vista.redesenhar();
   $("vazio").querySelector("h1")!.textContent = `${a.nome}: importe a planta de arquitetura deste pavimento`;
   mostrarInfo(desenho);
   atualizarPavs();
@@ -108,6 +169,9 @@ async function abrirDesenho(bytes: Uint8Array, nome: string, caminho: string | n
     const t0 = performance.now();
     const d = carregarDxf(decodificarDxf(bytes), nome);
     desenhos.set(alvo.id, d);
+    if (!projeto.elementos.length) projeto.config.escalaMetro = adivinharEscala(d);
+    else if (Math.abs(adivinharEscala(d) - projeto.config.escalaMetro) > 1e-12)
+      mensagem(`Atenção: ${nome} parece estar em outra unidade que o projeto. Confira em "Planta de fundo".`, true);
     const trocouPlanta = alvo.fundo?.nome !== nome;
     alvo.fundo = { nome, caminho, camadasOcultas: ocultas };
     if (trocouPlanta) alvo.vista = null;
@@ -166,7 +230,8 @@ C.registrar({ nome: "excluirPavimento", descricao: "Exclui um pavimento (o proje
     if (projeto.pavimentos.length === 1) { mensagem("O projeto precisa ter pelo menos um pavimento.", true); return; }
     if (!args?.semConfirmar && !confirmar(`Excluir o pavimento "${p.nome}" e tudo o que foi lançado nele?`)) return;
     projeto.pavimentos = projeto.pavimentos.filter((x) => x !== p);
-    projeto.elementos = projeto.elementos.filter((e: any) => e?.pavimentoId !== p.id);
+    projeto.elementos = projeto.elementos.filter((e) => e.pavimentoId !== p.id && !(e.tipo === "coluna" && e.topoId === p.id));
+    editor.limparHistorico();
     desenhos.delete(p.id);
     if (projeto.pavimentoAtivo === p.id) projeto.pavimentoAtivo = projeto.pavimentos[0].id;
     marcarAlterado();
@@ -179,6 +244,7 @@ C.registrar({ nome: "novo", descricao: "Cria um projeto novo", async executar() 
   caminhoProjeto = null;
   desenhos.clear();
   alterado = false;
+  reiniciarEditor();
   mostrarPavimentoAtivo();
 } });
 
@@ -204,6 +270,7 @@ C.registrar({ nome: "abrir", descricao: "Abre um projeto (.ohp)", async executar
     caminhoProjeto = a.caminho;
     projeto.nome = a.nome.replace(/\.ohp$/i, "");
     desenhos.clear();
+    reiniciarEditor();
     mostrarPavimentoAtivo();
     const faltando: string[] = [];
     for (const pv of p.pavimentos) {
@@ -225,17 +292,110 @@ C.registrar({ nome: "abrir", descricao: "Abre um projeto (.ohp)", async executar
 
 function confirmar(t: string) { return window.confirm(t); }
 
+function reiniciarEditor() {
+  editor.limparHistorico();
+  editor.opcoes.alturaTubo = projeto.config.alturaTubo;
+  editor.definirFerramenta("selecionar");
+  paineis.atualizarTudo();
+}
+
+// ------------------------------------------------------- comandos de lançamento
+const pavDe = (a: any) => (a?.pavimento ? pav(a.pavimento).id : projeto.pavimentoAtivo);
+C.registrar({ nome: "ferramenta", descricao: "Ativa uma ferramenta: selecionar, tubo, aparelho, reservatorio, coluna",
+  executar: (a?: any) => editor.definirFerramenta((a?.nome ?? a) as NomeFerramenta) });
+C.registrar({ nome: "inserirAparelho", descricao: "Insere ponto de utilização {chave, x, y, altura?, quantidade?, pavimento?}",
+  executar: (a: any) => editor.inserir({ tipo: "aparelho", chave: a.chave, x: a.x, y: a.y, altura: a.altura, quantidade: a.quantidade ?? 1, pavimentoId: pavDe(a), rotulo: a.rotulo }).id });
+C.registrar({ nome: "inserirTubo", descricao: "Insere tubo {x1, y1, x2, y2, altura?, dn?, pavimento?}",
+  executar: (a: any) => editor.inserir({ tipo: "tubo", x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2, altura: a.altura, dn: a.dn ?? null, pavimentoId: pavDe(a) }).id });
+C.registrar({ nome: "inserirReservatorio", descricao: "Insere reservatório {x, y, altura?, nivelAgua?, pavimento?}",
+  executar: (a: any) => editor.inserir({ tipo: "reservatorio", x: a.x, y: a.y, altura: a.altura, nivelAgua: a.nivelAgua, pavimentoId: pavDe(a), rotulo: a.rotulo ?? editor.proximoRotulo("RES") }).id });
+C.registrar({ nome: "inserirColuna", descricao: "Insere coluna {x, y, pavimento (base), topo}",
+  executar: (a: any) => editor.inserir({ tipo: "coluna", x: a.x, y: a.y, pavimentoId: pavDe(a), topoId: pav(a.topo).id, rotulo: a.rotulo ?? editor.proximoRotulo("AF-") }).id });
+C.registrar({ nome: "excluirElementos", descricao: "Exclui elementos {ids}", executar: (a: any) => editor.excluir(a.ids) });
+C.registrar({ nome: "alterarElementos", descricao: "Altera propriedades {ids, dados}", executar: (a: any) => editor.alterar(a.ids, a.dados) });
+C.registrar({ nome: "selecionar", descricao: "Seleciona elementos {ids} e mostra na tela", executar: (a: any) => irPara(a.ids) });
+C.registrar({ nome: "desfazer", descricao: "Desfaz a última alteração", executar: () => editor.desfazer() });
+C.registrar({ nome: "refazer", descricao: "Refaz a alteração desfeita", executar: () => editor.refazer() });
+C.registrar({ nome: "enquadrar", descricao: "Enquadra a vista {xmin, ymin, xmax, ymax} (coordenadas do desenho)",
+  executar: (a: any) => vista.enquadrar(a.xmin, a.ymin, a.xmax, a.ymax, 1.05) });
+C.registrar({ nome: "listarElementos", descricao: "Lista os elementos do projeto", executar: () => projeto.elementos });
+
+C.registrar({ nome: "calcular", descricao: "Dimensiona a água fria (NBR 5626) e mostra diâmetros e pressões", async executar() {
+  const m = montarRedes(projeto.elementos, projeto.pavimentos, projeto.config.escalaMetro);
+  const r: ResultadoCalculo = { redes: [], trechos: [], pontos: [], alertas: [], erros: m.erros, avisos: m.avisos };
+  if (!m.redes.length && !m.erros.length) { mensagem("Nada para calcular: lance um reservatório, tubos e pontos de utilização.", true); return; }
+  mensagem("Calculando…");
+  for (const rm of m.redes) {
+    aplicarDnImposto(rm, projeto.elementos);
+    let resp: any;
+    try { resp = await chamarMotor({ acao: "dimensionar", rede: rm.rede }); }
+    catch (e: any) { r.erros.push({ mensagem: `${rm.rede.nome}: ${e?.message ?? e}`, elementos: [rm.id] }); continue; }
+    r.redes.push({ montada: rm, resposta: resp });
+    const vmax = resp.resultado.parametros.velocidade_max_ms;
+    for (const t of resp.resultado.trechos)
+      r.trechos.push({ rede: rm.id, id: t.id, de: t.de, para: t.para, dn: t.dn, ref: t.referencia, q: t.vazao_ls,
+                       v: t.velocidade_ms, hf: t.perda_carga_m, L: t.comprimento_m, ok: t.velocidade_ms <= vmax + 1e-6 });
+    for (const n of resp.resultado.nos) {
+      const el = rm.nos[n.id];
+      if (!el || n.aparelho == null) continue;
+      r.pontos.push({ rede: rm.id, no: n.id, el, pd: n.pressao_dinamica_kpa, pmin: n.pressao_min_kpa, ok: n.ok });
+    }
+    r.alertas.push(...resp.resultado.alertas.map((a: string) => (m.redes.length > 1 ? `${rm.rede.nome}: ` : "") + a));
+  }
+  editor.resultado = r;
+  editor.problemas = new Set([...r.erros, ...r.avisos].flatMap((p) => p.elementos));
+  paineis.resultados();
+  vista.redesenhar();
+  const pend = r.erros.length + r.trechos.filter((t) => !t.ok).length + r.pontos.filter((p) => !p.ok).length;
+  mensagem(pend ? `Cálculo concluído com ${pend} pendência(s) — veja o painel à direita.` : "Cálculo concluído: todos os pontos atendidos.", pend > 0);
+  return { pendencias: pend, trechos: r.trechos, pontos: r.pontos, erros: r.erros, alertas: r.alertas };
+} });
+
+C.registrar({ nome: "exportarMemorial", descricao: "Salva o memorial de cálculo em Markdown", async executar() {
+  if (!editor.resultado?.redes.length) await C.executar("calcular");
+  const r = editor.resultado;
+  if (!r?.redes.length) return;
+  const texto = `# ${projeto.nome}\n\n` + r.redes.map((x) => x.resposta.memorial).join("\n---\n\n");
+  const nome = (projeto.nome || "projeto").replace(/[\\/:*?"<>|]/g, "_") + "_memorial.md";
+  const c = await salvarTexto(texto, nome, null, "md", "Memorial de cálculo");
+  if (c) mensagem(`Memorial salvo: ${c}`);
+} });
+
 // ------------------------------------------------------------- interface
 document.querySelectorAll<HTMLButtonElement>("[data-cmd]").forEach((b) =>
   b.addEventListener("click", () => C.executar(b.dataset.cmd!).catch((e) => mensagem(String(e?.message ?? e), true))));
 
+const rodar = (n: string, a?: unknown) => C.executar(n, a).catch((e) => mensagem(String(e?.message ?? e), true));
+document.querySelectorAll<HTMLButtonElement>("[data-ferramenta]").forEach((b) =>
+  b.addEventListener("click", () => rodar("ferramenta", { nome: b.dataset.ferramenta })));
+$("snapPlanta").addEventListener("click", () => { editor.alternarSnapPlanta(); $("snapPlanta").classList.toggle("ligado", editor.snapPlanta); });
+$("orto").addEventListener("click", () => { editor.alternarOrto(); $("orto").classList.toggle("ligado", editor.orto); });
+
 window.addEventListener("keydown", (e) => {
-  if (e.target instanceof HTMLInputElement) return;
+  const alvo = e.target as HTMLElement;
+  if (alvo instanceof HTMLInputElement || alvo instanceof HTMLSelectElement || alvo instanceof HTMLTextAreaElement) {
+    if (e.key === "Escape") alvo.blur();
+    return;
+  }
   const k = e.key.toLowerCase();
-  if (e.ctrlKey && k === "s") { e.preventDefault(); C.executar("salvar"); }
-  else if (e.ctrlKey && k === "o") { e.preventDefault(); C.executar("abrir"); }
-  else if (e.ctrlKey && k === "n") { e.preventDefault(); C.executar("novo"); }
-  else if (e.key === "Home") { e.preventDefault(); C.executar("zoomExtensao"); }
+  if (e.ctrlKey && k === "s") { e.preventDefault(); rodar("salvar"); }
+  else if (e.ctrlKey && k === "o") { e.preventDefault(); rodar("abrir"); }
+  else if (e.ctrlKey && k === "n") { e.preventDefault(); rodar("novo"); }
+  else if (e.ctrlKey && k === "z") { e.preventDefault(); rodar(e.shiftKey ? "refazer" : "desfazer"); }
+  else if (e.ctrlKey && k === "y") { e.preventDefault(); rodar("refazer"); }
+  else if (e.ctrlKey && k === "a") { e.preventDefault(); editor.selecionar(editor.visiveis().map((x) => x.id)); }
+  else if (e.ctrlKey || e.altKey || e.metaKey) return;
+  else if (e.key === "Home") { e.preventDefault(); rodar("zoomExtensao"); }
+  else if (e.key === "Escape") editor.esc();
+  else if (e.key === "Delete" || e.key === "Backspace") { if (editor.selecao.size) rodar("excluirElementos", { ids: [...editor.selecao] }); }
+  else if (e.key === "F5") { e.preventDefault(); rodar("calcular"); }
+  else if (e.key === "F3") { e.preventDefault(); editor.alternarSnapPlanta(); $("snapPlanta").classList.toggle("ligado", editor.snapPlanta); }
+  else if (e.key === "F8") { e.preventDefault(); editor.alternarOrto(); $("orto").classList.toggle("ligado", editor.orto); }
+  else if (k === "t") rodar("ferramenta", { nome: "tubo" });
+  else if (k === "p") rodar("ferramenta", { nome: "aparelho" });
+  else if (k === "r") rodar("ferramenta", { nome: "reservatorio" });
+  else if (k === "c") rodar("ferramenta", { nome: "coluna" });
+  else if (k === "s") rodar("ferramenta", { nome: "selecionar" });
 });
 
 // arrastar e soltar arquivo DXF/OHP
@@ -264,7 +424,13 @@ window.addEventListener("beforeunload", (e) => { if (alterado) e.preventDefault(
     pavimentos: projeto.pavimentos.map((p) => ({ id: p.id, nome: p.nome, cota: p.cota, peDireito: p.peDireito,
       fundo: p.fundo?.nome ?? null, carregado: desenhos.has(p.id) })),
     desenho: desenho && { nome: desenho.nome, camadas: desenho.camadas.size, segmentos: desenho.totalSegmentos },
+    elementos: projeto.elementos.length,
+    ferramenta: editor.ferramenta,
+    selecao: [...editor.selecao],
   }),
+  editor,
+  vista,
 };
 
+reiniciarEditor();
 mostrarPavimentoAtivo();

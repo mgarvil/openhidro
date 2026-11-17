@@ -4,7 +4,7 @@ name: app-windows
 on:
   push:
     branches: [main]
-    paths: ["app/**", ".github/workflows/app-windows.yml"]
+    paths: ["app/**", "src/**", "scripts/**", ".github/workflows/app-windows.yml"]
   workflow_dispatch:
 
 permissions:
@@ -28,6 +28,18 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: app/src-tauri -> target
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Empacotar o motor de cálculo (sidecar)
+        shell: bash
+        run: |
+          pip install pyinstaller .
+          pyinstaller --onefile --name openhidro-motor --exclude-module ezdxf --exclude-module mcp \
+            --distpath motor-dist scripts/motor_entrada.py
+          mkdir -p app/src-tauri/binaries
+          cp motor-dist/openhidro-motor.exe app/src-tauri/binaries/openhidro-motor-x86_64-pc-windows-msvc.exe
+          echo '{"acao":"versao"}' | app/src-tauri/binaries/openhidro-motor-x86_64-pc-windows-msvc.exe
       - run: npm ci
         working-directory: app
       - name: Compilar e publicar instalador

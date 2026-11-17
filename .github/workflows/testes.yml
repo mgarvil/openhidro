@@ -13,3 +13,16 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: pip install -e ".[mcp,dev]"
       - run: python -m pytest -q
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        working-directory: app
+      - run: npx tsc --noEmit && npm test
+        working-directory: app

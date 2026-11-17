@@ -9,3 +9,4 @@ exemplos/banheiro_af.dxf
 app/node_modules/
 app/dist/
 app/src-tauri/target/
+app/src-tauri/binaries/
