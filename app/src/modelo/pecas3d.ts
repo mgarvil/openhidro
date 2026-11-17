@@ -4,7 +4,7 @@
 // em metros, com origem deslocada para o centro do projeto (precisão em float32).
 import * as THREE from "three";
 import type { Desenho } from "../dxf/carregar";
-import type { Elemento } from "./elementos";
+import { ehSegmento, type Elemento } from "./elementos";
 import type { RedeMontada } from "./rede";
 import type { Pavimento } from "../projeto";
 
@@ -12,7 +12,7 @@ export interface Entrada3D {
   elementos: Elemento[];
   pavimentos: Pavimento[];
   escala: number;                                   // m por unidade do desenho
-  redes: { montada: RedeMontada; dn: Map<string, number> | null }[];
+  redes: { montada: Pick<RedeMontada, "grafo">; dn: Map<string, number> | null; esgoto?: boolean }[];
   desenhos: Map<string, Desenho>;
 }
 
@@ -24,6 +24,8 @@ const MAT = {
   cromo: new THREE.MeshStandardMaterial({ color: 0xd9dde3, roughness: 0.15, metalness: 0.9 }),
   caixa: new THREE.MeshStandardMaterial({ color: 0x1d4fa3, roughness: 0.5, metalness: 0.05 }),
   solto: new THREE.MeshStandardMaterial({ color: 0x8a8f99, roughness: 0.6 }),
+  esgoto: new THREE.MeshStandardMaterial({ color: 0xe4e1d6, roughness: 0.5, metalness: 0.02 }),
+  esgotoConexao: new THREE.MeshStandardMaterial({ color: 0xcfcabb, roughness: 0.5 }),
 };
 const Y = new THREE.Vector3(0, 1, 0);
 
@@ -36,7 +38,7 @@ export function construir3D(e: Entrada3D): Modelo3D {
   // origem: centro dos elementos
   const xs: number[] = [], ys: number[] = [];
   for (const el of e.elementos) {
-    if (el.tipo === "tubo") { xs.push(el.x1, el.x2); ys.push(el.y1, el.y2); } else { xs.push(el.x); ys.push(el.y); }
+    if (ehSegmento(el)) { xs.push(el.x1, el.x2); ys.push(el.y1, el.y2); } else { xs.push(el.x); ys.push(el.y); }
   }
   const ox = xs.length ? ((Math.min(...xs) + Math.max(...xs)) / 2) * e.escala : 0;
   const oy = ys.length ? ((Math.min(...ys) + Math.max(...ys)) / 2) * e.escala : 0;
@@ -44,18 +46,19 @@ export function construir3D(e: Entrada3D): Modelo3D {
   const porEl = new Map(e.elementos.map((x) => [x.id, x]));
   const usados = new Set<string>();
 
-  for (const { montada, dn } of e.redes) {
+  for (const { montada, dn, esgoto } of e.redes) {
+    const matTubo = esgoto ? MAT.esgoto : MAT.tubo, matCon = esgoto ? MAT.esgotoConexao : MAT.conexao;
     const G = montada.grafo;
     const dnAresta = (a: { trecho: string; el?: string }) => {
       const t = a.el ? porEl.get(a.el) : null;
-      return dn?.get(a.trecho) ?? (t?.tipo === "tubo" && t.dn ? t.dn : 25);
+      return dn?.get(a.trecho) ?? (t && ehSegmento(t) && t.dn ? t.dn : esgoto ? 100 : 25);
     };
     const inc = new Map<number, { o: number; dn: number }[]>();
     for (const a of G.arestas) {
       if (a.el) usados.add(a.el);
       const d = dnAresta(a);
       const p = G.nos[a.a], q = G.nos[a.b];
-      g.add(tubo(V(p.x, p.y, p.z), V(q.x, q.y, q.z), d, MAT.tubo, `Tubo ø${d}`));
+      g.add(tubo(V(p.x, p.y, p.z), V(q.x, q.y, q.z), d, matTubo, `Tubo ${esgoto ? "esgoto " : ""}ø${d}`));
       (inc.get(a.a) ?? inc.set(a.a, []).get(a.a)!).push({ o: a.b, dn: d });
       (inc.get(a.b) ?? inc.set(a.b, []).get(a.b)!).push({ o: a.a, dn: d });
     }
@@ -66,8 +69,15 @@ export function construir3D(e: Entrada3D): Modelo3D {
       const reta = es.length === 2 && dirs[0].dot(dirs[1]) < -0.98;
       if (n.res) {
         const el = porEl.get(n.res);
-        g.add(reservatorio(c, el?.rotulo ?? "Reservatório"));
-        continue;
+        if (el?.tipo === "reservatorio") { g.add(reservatorio(c, el.rotulo ?? "Reservatório")); continue; }
+        if (el?.tipo === "caixa_esgoto") {
+          const lado = el.modelo === "inspecao" || el.modelo === "gordura" ? 0.6 : el.modelo === "ralo" ? 0.1 : 0.15;
+          const cx = new THREE.Mesh(new THREE.BoxGeometry(lado, lado * 1.2, lado), el.modelo === "inspecao" || el.modelo === "gordura" ? MAT.solto : MAT.esgotoConexao);
+          cx.position.set(c.x, c.y + lado * 0.3, c.z); cx.name = el.modelo === "sifonada" ? "Caixa sifonada" : el.modelo === "ralo" ? "Ralo" : "Caixa";
+          g.add(cx);
+          continue;
+        }
+        if (el?.tipo === "saida_esgoto") continue;
       }
       if (n.reg && es.length) {
         const el = porEl.get(n.reg);
@@ -75,9 +85,9 @@ export function construir3D(e: Entrada3D): Modelo3D {
         if (reta) continue;
       }
       if (!es.length || (reta && es[0].dn === es[1].dn)) continue;
-      const mat = n.ap ? MAT.azul : MAT.conexao;
+      const mat = n.ap && !esgoto ? MAT.azul : matCon;
       g.add(conexao(c, dirs, es.map((x) => x.dn), mat, n.ap ? "Conexão com bucha de latão" : nomeConexao(es.length, reta)));
-      if (n.ap) {
+      if (n.ap && !esgoto) {
         // saída roscada do ponto: horizontal, no sentido em que o ramal chegava
         let h = new THREE.Vector3(1, 0, 0);
         let k = G.pai[n.i];
@@ -96,9 +106,9 @@ export function construir3D(e: Entrada3D): Modelo3D {
   }
   // tubos que não pertencem a nenhuma rede calculável (sem reservatório etc.)
   for (const el of e.elementos) {
-    if (el.tipo !== "tubo" || usados.has(el.id) || !cota.has(el.pavimentoId)) continue;
+    if (!ehSegmento(el) || usados.has(el.id) || !cota.has(el.pavimentoId)) continue;
     const z = (cota.get(el.pavimentoId) ?? 0) + el.altura;
-    g.add(tubo(V(el.x1 * e.escala, el.y1 * e.escala, z), V(el.x2 * e.escala, el.y2 * e.escala, z), el.dn ?? 25, MAT.solto, "Tubo sem rede"));
+    g.add(tubo(V(el.x1 * e.escala, el.y1 * e.escala, z), V(el.x2 * e.escala, el.y2 * e.escala, z), el.dn ?? (el.tipo === "tubo" ? 25 : 100), MAT.solto, "Tubo sem rede"));
   }
 
   const caixa = new THREE.Box3().setFromObject(g);

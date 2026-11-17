@@ -1,6 +1,8 @@
 // Painel direito: opções da ferramenta (biblioteca de pontos), propriedades da seleção e resultados.
 import type { Editor } from "../editor";
-import { APARELHOS, MODELOS_REGISTRO, NOMES_TIPO, SIGLAS, TUBOS_PVC, aparelho, type Elemento } from "../modelo/elementos";
+import { APARELHOS, APARELHOS_ES, MODELOS_CAIXA, MODELOS_REGISTRO, NOMES_TIPO, SIGLAS, SIGLAS_ES, TUBOS_PVC, aparelho, type Elemento } from "../modelo/elementos";
+
+const DNS_ES = [40, 50, 75, 100, 150];
 import type { Projeto } from "../projeto";
 
 type Executar = (nome: string, args?: unknown) => Promise<unknown>;
@@ -48,6 +50,36 @@ export class Paineis {
           <label>Lâmina d'água (m)</label><input name="nivelAgua" value="${vf(o.nivelAgua)}" />
           <span class="info">A lâmina é a altura de água acima da saída considerada no cálculo. Use 0 para o caso mais desfavorável (reservatório quase vazio).</span></div>`;
         break;
+      case "ponto_esgoto":
+        el.innerHTML = `<h2>Ponto de esgoto</h2>
+          <ul class="biblioteca">${APARELHOS_ES.map((a) => `<li data-chave-es="${a.chave}" class="${a.chave === o.aparelhoEs ? "ativo" : ""}" title="${a.uhc} UHC · DN mín. ${a.dn_min}">
+            <span class="sigla" style="color:#e3a33a">${SIGLAS_ES[a.chave] ?? ""}</span>${esc(a.descricao)}</li>`).join("")}</ul>
+          <div class="form"><span class="info">Clique na saída do aparelho. Ligue com tubo de esgoto até a caixa sifonada, junção ou tubo de queda.</span></div>`;
+        el.querySelectorAll<HTMLElement>(".biblioteca li").forEach((li) => li.addEventListener("click", () => { o.aparelhoEs = li.dataset.chaveEs!; this.ferramenta(); }));
+        break;
+      case "tubo_esgoto":
+        el.innerHTML = `<h2>Tubo de esgoto</h2><div class="form">
+          <label>Altura (m)</label><input name="alturaTuboEs" value="${vf(o.alturaTuboEs)}" />
+          <label>Declividade (%)</label><input name="declividadeEs" value="${vf(o.declividadeEs * 100)}" />
+          <span class="info">Desenhe no sentido do escoamento. Altura negativa = abaixo do piso (−0,30 no aterro ou sob a laje). Mínimo: 2 % até DN 75, 1 % a partir de DN 100.</span></div>`;
+        break;
+      case "caixa_esgoto":
+        el.innerHTML = `<h2>Caixa</h2><div class="form">
+          <label>Tipo</label><select name="modeloCaixa">${Object.entries(MODELOS_CAIXA).map(([k, m]) => `<option value="${k}" ${o.modeloCaixa === k ? "selected" : ""}>${m.nome}</option>`).join("")}</select>
+          <label>Altura da saída (m)</label><input name="alturaCaixa" value="${vf(o.alturaCaixa)}" /></div>`;
+        break;
+      case "saida_esgoto":
+        el.innerHTML = `<h2>Saída de esgoto</h2><div class="form"><label>Altura (m)</label><input name="alturaTuboEs" value="${vf(o.alturaTuboEs)}" />
+          <span class="info">Ligação à rede pública ou à última caixa de inspeção. Cada rede de esgoto tem uma saída.</span></div>`;
+        break;
+      case "tubo_queda": {
+        const a = ed.pavAtivo;
+        el.innerHTML = `<h2>Tubo de queda</h2><div class="form">
+          <label>De</label><input value="${esc(a.nome)}" disabled />
+          <label>Até</label><select name="colunaTopo">${pavs.filter((p) => p.id !== a.id).map((p) =>
+            `<option value="${p.id}" ${p.id === (o.colunaTopo ?? pavs[pavs.indexOf(a) + 1]?.id) ? "selected" : ""}>${esc(p.nome)}</option>`).join("")}</select></div>`;
+        break;
+      }
       case "registro":
         el.innerHTML = `<h2>Registro</h2><div class="form">
           <label>Tipo</label><select name="modeloRegistro">${Object.entries(MODELOS_REGISTRO).map(([k, m]) =>
@@ -69,8 +101,8 @@ export class Paineis {
     el.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input[name], select[name]").forEach((inp) =>
       inp.addEventListener("change", () => {
         const k = inp.name as keyof typeof o;
-        if (k === "colunaTopo" || k === "aparelho" || k === "modeloRegistro") (o as any)[k] = inp.value;
-        else { const v = num(inp.value); if (isFinite(v)) (o as any)[k] = v; else inp.value = vf((o as any)[k]); }
+        if (k === "colunaTopo" || k === "aparelho" || k === "modeloRegistro" || k === "modeloCaixa") (o as any)[k] = inp.value;
+        else { let v = num(inp.value); if (k === "declividadeEs") v /= 100; if (isFinite(v)) (o as any)[k] = v; else inp.value = vf((o as any)[k]); }
         if (k === "alturaTubo") this.projeto().config.alturaTubo = o.alturaTubo;
       }));
   }
@@ -104,6 +136,24 @@ export class Paineis {
       } else if (t === "reservatorio") {
         campos = `<label>Saída acima do piso (m)</label><input name="altura" value="${vf(comum("altura"))}" />
           <label>Lâmina d'água (m)</label><input name="nivelAgua" value="${vf(comum("nivelAgua"))}" />`;
+      } else if (t === "ponto_esgoto") {
+        campos = `<label>Aparelho</label><select name="chave">${um ? "" : `<option value="">(vários)</option>`}${APARELHOS_ES.map((a) =>
+          `<option value="${a.chave}" ${comum("chave") === a.chave ? "selected" : ""}>${esc(a.descricao)}</option>`).join("")}</select>
+          <label>Quantidade</label><input name="quantidade" value="${vf(comum("quantidade"))}" />`;
+      } else if (t === "tubo_esgoto") {
+        const dn = comum("dn");
+        campos = `<label>Altura (m)</label><input name="altura" value="${vf(comum("altura"))}" />
+          <label>Declividade (%)</label><input name="declividadePct" value="${vf(comum("declividade") != null ? comum("declividade") * 100 : null)}" />
+          <label>Diâmetro</label><select name="dn"><option value="">Calculado</option>${DNS_ES.map((d) => `<option value="${d}" ${dn === d ? "selected" : ""}>DN ${d}</option>`).join("")}</select>`;
+      } else if (t === "caixa_esgoto") {
+        campos = `<label>Tipo</label><select name="modelo">${Object.entries(MODELOS_CAIXA).map(([k, m]) => `<option value="${k}" ${comum("modelo") === k ? "selected" : ""}>${m.nome}</option>`).join("")}</select>
+          <label>Altura da saída (m)</label><input name="altura" value="${vf(comum("altura"))}" />`;
+      } else if (t === "saida_esgoto") {
+        campos = `<label>Altura (m)</label><input name="altura" value="${vf(comum("altura"))}" />`;
+      } else if (t === "tubo_queda") {
+        const pavs = this.projeto().pavimentos;
+        campos = `<label>Até o pavimento</label><select name="topoId">${pavs.map((p) =>
+          `<option value="${p.id}" ${comum("topoId") === p.id ? "selected" : ""}>${esc(p.nome)}</option>`).join("")}</select>`;
       } else if (t === "registro") {
         campos = `<label>Tipo</label><select name="modelo">${Object.entries(MODELOS_REGISTRO).map(([k, m]) =>
           `<option value="${k}" ${comum("modelo") === k ? "selected" : ""}>${m.nome}</option>`).join("")}</select>`;
@@ -114,7 +164,7 @@ export class Paineis {
       }
       if (um) campos = `<label>Rótulo</label><input name="rotulo" value="${esc(um.rotulo ?? "")}" placeholder="automático" />` + campos;
     }
-    const titulo = um ? NOMES_TIPO[um.tipo] + (um.tipo === "aparelho" ? ` — ${SIGLAS[um.chave] ?? ""}` : "")
+    const titulo = um ? NOMES_TIPO[um.tipo] + (um.tipo === "aparelho" ? ` — ${SIGLAS[um.chave] ?? ""}` : um.tipo === "ponto_esgoto" ? ` — ${SIGLAS_ES[um.chave] ?? ""}` : "")
                       : `${sel.length} elementos selecionados`;
     el.innerHTML = `<h2>${esc(titulo)}</h2><div class="form">${campos}</div>
       <div class="acoes-painel"><button data-a="ir">Mostrar</button><button data-a="excluir" class="perigo">Excluir (Del)</button></div>`;
@@ -123,6 +173,8 @@ export class Paineis {
         const k = inp.name;
         let v: unknown = inp.value;
         if (k === "dn") v = inp.value ? Number(inp.value) : null;
+        else if (k === "declividadePct") { const n = num(inp.value); if (!isFinite(n) || n <= 0) { this.propriedades(); return; }
+          this.executar("alterarElementos", { ids, dados: { declividade: n / 100 } }); return; }
         else if (k === "chave" && !inp.value) return;
         else if (["altura", "quantidade", "nivelAgua"].includes(k)) {
           const n = num(inp.value);
@@ -146,11 +198,16 @@ export class Paineis {
         5. <b>Calcular</b>: o programa escolhe os diâmetros e confere as pressões.</div>`;
       return;
     }
-    const falhas = r.trechos.filter((t) => !t.ok).length + r.pontos.filter((p) => !p.ok).length + r.erros.length;
+    const falhas = r.trechos.filter((t) => !t.ok).length + r.pontos.filter((p) => !p.ok).length + r.erros.length + r.trechosEs.filter((t) => !t.ok).length;
     const problemas = [...r.erros.map((e) => ({ ...e, classe: "" })), ...r.avisos.map((e) => ({ ...e, classe: "aviso" }))];
     const alertas = r.alertas.filter((a) => !a.startsWith("AVISO trecho") || true);
-    el.innerHTML = `<h2>Resultado — NBR 5626</h2>
-      <div class="resumo">${r.redes.length} rede(s) · ${r.trechos.length} trechos · ${r.pontos.length} pontos<br>
+    const nomesTipo: Record<string, string> = { ramal_descarga: "RD", ramal_esgoto: "RE", tubo_queda: "TQ", subcoletor: "SC", coletor: "CP" };
+    const tabEs = r.trechosEs.length ? `<br><table class="tab"><thead><tr><th>Esgoto</th><th>Tipo</th><th>UHC</th><th>DN</th><th>i (%)</th></tr></thead><tbody>
+        ${r.trechosEs.map((t) => `<tr class="${t.ok ? "" : "ruim"}" data-rede-es="${t.rede}" data-t="${t.id}" title="${esc(t.de)} → ${esc(t.para)} · L = ${f(t.L)} m">
+          <td>${esc(t.id)} <span style="color:#5a6370">${esc(t.de)}</span></td><td>${nomesTipo[t.tipo] ?? t.tipo}</td><td>${f(t.uhc, 0)}</td><td>${t.dn}</td><td>${t.dec != null ? f(t.dec * 100, 1) : "—"}</td></tr>`).join("")}
+        </tbody></table>` : "";
+    el.innerHTML = `<h2>Resultado — NBR 5626 / NBR 8160</h2>
+      <div class="resumo">${r.redes.length} rede(s) de água fria · ${r.trechos.length} trechos · ${r.pontos.length} pontos${r.esgoto.length ? `<br>${r.esgoto.length} rede(s) de esgoto · ${r.trechosEs.length} trechos` : ""}<br>
         ${falhas ? `<span class="falha">${falhas} pendência(s)</span>` : `<span class="ok">Todos os pontos atendidos</span>`}</div>
       ${problemas.length ? `<ul class="problemas">${problemas.map((p, i) => `<li class="${p.classe}" data-p="${i}">${esc(p.mensagem)}</li>`).join("")}</ul>` : ""}
       ${alertas.length ? `<ul class="problemas">${alertas.map((a) => `<li class="${a.startsWith("ERRO") ? "" : "aviso"}">${esc(a)}</li>`).join("")}</ul>` : ""}
@@ -161,11 +218,13 @@ export class Paineis {
         ${r.trechos.map((t) => `<tr class="${t.ok ? "" : "ruim"}" data-rede="${t.rede}" data-t="${t.id}" title="${esc(t.de)} → ${esc(t.para)} · L = ${f(t.L)} m">
           <td>${esc(t.id)} <span style="color:#5a6370">${esc(t.para)}</span></td><td>${t.dn}</td><td>${f(t.q)}</td><td>${f(t.v)}</td><td>${f(t.hf, 3)}</td></tr>`).join("")}
         </tbody></table>` : ""}
+      ${tabEs}
       <div class="ressalva">Cálculo preliminar pelo método da soma dos pesos. A responsabilidade técnica é do engenheiro, que deve conferir critérios e tabelas com a norma vigente.</div>`;
     el.querySelectorAll<HTMLElement>("[data-p]").forEach((li) => li.addEventListener("click", () => this.irPara(problemas[+li.dataset.p!].elementos)));
     el.querySelectorAll<HTMLElement>("tr[data-el]").forEach((tr) => tr.addEventListener("click", () => this.irPara([tr.dataset.el!])));
     el.querySelectorAll<HTMLElement>("tr[data-t]").forEach((tr) => tr.addEventListener("click", () => {
-      const m = r.redes.find((x) => x.montada.id === tr.dataset.rede)?.montada.trechos.find((x) => x.id === tr.dataset.t);
+      const m = (tr.dataset.redeEs ? r.esgoto.find((x) => x.montada.id === tr.dataset.redeEs)?.montada : r.redes.find((x) => x.montada.id === tr.dataset.rede)?.montada)
+        ?.trechos.find((x) => x.id === tr.dataset.t);
       if (m) this.irPara(m.elementos);
     }));
   }

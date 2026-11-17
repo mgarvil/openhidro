@@ -35,8 +35,18 @@
     </header>
 
     <div class="ferramentas">
-      <span class="aba">Água fria</span>
-      <nav class="grupo" id="grupoFerramentas">
+      <nav class="abas">
+        <button class="aba ativa" data-aba="af" title="Ferramentas de água fria">Água fria</button>
+        <button class="aba" data-aba="es" title="Ferramentas de esgoto">Esgoto</button>
+      </nav>
+      <nav class="grupo" id="grupoEsgoto" data-grupo="es" hidden>
+        <button data-ferramenta="saida_esgoto" title="Saída: ligação à rede pública (fim da rede de esgoto)"><span class="ico es">▶</span>Saída</button>
+        <button data-ferramenta="tubo_esgoto" title="Tubo de esgoto, no sentido do escoamento"><span class="ico es">╱</span>Tubo</button>
+        <button data-ferramenta="ponto_esgoto" title="Ponto de esgoto: bacia, chuveiro, lavatório, pia…"><span class="ico es">▣</span>Ponto</button>
+        <button data-ferramenta="caixa_esgoto" title="Caixa sifonada, de inspeção, de gordura ou ralo"><span class="ico es">◫</span>Caixa</button>
+        <button data-ferramenta="tubo_queda" title="Tubo de queda entre pavimentos"><span class="ico es">◉</span>Tubo de queda</button>
+      </nav>
+      <nav class="grupo" id="grupoFerramentas" data-grupo="af">
         <button data-ferramenta="selecionar" title="Selecionar (Esc) — clique ou arraste uma janela; Delete apaga"><span class="ico">⬚</span>Selecionar</button>
         <button data-ferramenta="reservatorio" title="Reservatório (R)"><span class="ico">▤</span>Reservatório</button>
         <button data-ferramenta="tubo" title="Tubulação (T)"><span class="ico">╱</span>Tubo</button>
@@ -49,7 +59,7 @@
       <button id="orto" class="alternar" title="Orto: tubos só na horizontal/vertical (F8)">Orto</button>
       <span class="sep"></span>
       <nav class="grupo">
-        <button data-cmd="calcular" class="destaque" title="Dimensionar pela NBR 5626 (F5)">Calcular</button>
+        <button data-cmd="calcular" class="destaque" title="Dimensionar água fria (NBR 5626) e esgoto (NBR 8160) — F5">Calcular</button>
         <button data-cmd="materiais" title="Lista de materiais por pavimento (Tigre, Amanco…)">Materiais</button>
         <button data-cmd="exportarMemorial" title="Salvar o memorial de cálculo (Markdown)">Memorial</button>
         <button data-cmd="prancha" title="Gerar prancha em PDF (planta, isométricos, lista, selo)">Prancha PDF</button>
@@ -103,7 +113,7 @@
       <span id="unidade"></span>
       <span id="escalaVista"></span>
       <span id="mensagem" class="mensagem"></span>
-      <span class="versao">OpenHidro 0.5</span>
+      <span class="versao">OpenHidro 0.6</span>
     </footer>
 
     <script type="module" src="/src/main.ts"></script>

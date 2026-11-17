@@ -73,7 +73,8 @@ export function montarRedes(elementos: Elemento[], pavimentos: Pavimento[], esca
   // posicionados sobre ele (a ligação vertical sai do meio do tubo, formando um tê)
   const pontas: { x: number; y: number; z: number | null; pav: string | null; t: ElTubo | null }[] = tubos.flatMap((t) => [
     { x: t.x1, y: t.y1, z: zDe(t.pavimentoId, t.altura), pav: t.pavimentoId, t }, { x: t.x2, y: t.y2, z: zDe(t.pavimentoId, t.altura), pav: t.pavimentoId, t }]);
-  for (const e of elementos) if (e.tipo !== "tubo") pontas.push({ x: e.x, y: e.y, z: null, pav: e.tipo === "coluna" ? null : e.pavimentoId, t: null });
+  for (const e of elementos) if (e.tipo === "aparelho" || e.tipo === "reservatorio" || e.tipo === "coluna" || e.tipo === "registro")
+    pontas.push({ x: e.x, y: e.y, z: null, pav: e.tipo === "coluna" ? null : e.pavimentoId, t: null });
   // (registros também partem o tubo: o nó criado recebe o registro logo abaixo)
   for (const t of tubos) {
     const z = zDe(t.pavimentoId, t.altura);

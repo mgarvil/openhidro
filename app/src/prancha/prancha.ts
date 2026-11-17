@@ -4,12 +4,13 @@
 import { jsPDF } from "jspdf";
 import type { Desenho } from "../dxf/carregar";
 import type { ResultadoCalculo } from "../editor";
-import { MODELOS_REGISTRO, SIGLAS, aparelho, type Elemento } from "../modelo/elementos";
+import { ehSegmento, MODELOS_CAIXA, MODELOS_REGISTRO, SIGLAS, SIGLAS_ES, aparelho, type Elemento } from "../modelo/elementos";
 import { barras, PONTOS_CAT, type LinhaMaterial } from "../modelo/quantitativo";
 import type { NoGrafo, RedeMontada } from "../modelo/rede";
 import type { Pavimento, Projeto } from "../projeto";
 
 type RGB = [number, number, number];
+const OCRE: RGB = [176, 112, 10];
 const AZUL: RGB = [0, 84, 214], PRETO: RGB = [20, 20, 20], CINZA: RGB = [150, 150, 150], CINZA2: RGB = [205, 205, 205], ROXO: RGB = [150, 40, 170];
 const FOLHAS = { A0: [1189, 841], A1: [841, 594], A2: [594, 420], A3: [420, 297] } as const;
 const ESCALAS_PLANTA = [50, 75, 100, 125, 150, 200, 250, 500];
@@ -36,7 +37,7 @@ export function gerarPrancha(e: EntradaPrancha): jsPDF {
   const porEl = new Map(projeto.elementos.map((x) => [x.id, x]));
   const redes = e.resultado.redes.map((r) => ({ montada: r.montada, dn: new Map<string, number>(r.resposta.resultado.trechos.map((t: any) => [t.id, t.dn])) }));
   const pavs = projeto.pavimentos.slice().reverse().filter((p) => projeto.elementos.some((x) => x.pavimentoId === p.id ||
-    (x.tipo === "coluna" && x.topoId === p.id)));
+    ((x.tipo === "coluna" || x.tipo === "tubo_queda") && x.topoId === p.id)));
   let numDetalhe = 0;
   const colunas = projeto.elementos.filter((x) => x.tipo === "coluna");
   const temEsquema = colunas.length > 0;
@@ -140,9 +141,9 @@ function desenharPlanta(doc: jsPDF, e: EntradaPrancha, pav: Pavimento, detalhes:
                         redes: { montada: RedeMontada; dn: Map<string, number> }[], area: [number, number, number, number]) {
   const { projeto } = e;
   const esc = projeto.config.escalaMetro;
-  const els = projeto.elementos.filter((x) => x.pavimentoId === pav.id || (x.tipo === "coluna" && x.topoId === pav.id));
+  const els = projeto.elementos.filter((x) => x.pavimentoId === pav.id || ((x.tipo === "coluna" || x.tipo === "tubo_queda") && x.topoId === pav.id));
   const xs: number[] = [], ys: number[] = [];
-  for (const x of els) { if (x.tipo === "tubo") { xs.push(x.x1, x.x2); ys.push(x.y1, x.y2); } else { xs.push(x.x); ys.push(x.y); } }
+  for (const x of els) { if (ehSegmento(x)) { xs.push(x.x1, x.x2); ys.push(x.y1, x.y2); } else { xs.push(x.x); ys.push(x.y); } }
   const m = 2.5 / esc;
   const bb = [Math.min(...xs) - m, Math.min(...ys) - m, Math.max(...xs) + m, Math.max(...ys) + m];
   const [ax0, ay0, ax1, ay1] = area;
@@ -186,6 +187,32 @@ function desenharPlanta(doc: jsPDF, e: EntradaPrancha, pav: Pavimento, detalhes:
   for (const r of redes) for (const t of r.montada.trechos) for (const id of t.elementos) dnDoEl.set(id, Math.max(dnDoEl.get(id) ?? 0, r.dn.get(t.id) ?? 0));
   doc.setDrawColor(...AZUL); doc.setLineWidth(0.5);
   for (const x of els) if (x.tipo === "tubo") { const a = P(x.x1, x.y1), b = P(x.x2, x.y2); doc.line(a[0], a[1], b[0], b[1]); }
+  doc.setDrawColor(...OCRE); doc.setLineWidth(0.6);
+  for (const x of els) if (x.tipo === "tubo_esgoto") {
+    const a = P(x.x1, x.y1), b = P(x.x2, x.y2); doc.line(a[0], a[1], b[0], b[1]);
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (L > 8) {   // seta do escoamento
+      const ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L, mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      doc.setFillColor(...OCRE);
+      doc.triangle(mx + ux * 1.4, my + uy * 1.4, mx - ux * 1.2 - uy * 0.9, my - uy * 1.2 + ux * 0.9, mx - ux * 1.2 + uy * 0.9, my - uy * 1.2 - ux * 0.9, "F");
+    }
+  }
+  doc.setFontSize(1.8 * PT); doc.setTextColor(...OCRE);
+  for (const r of e.resultado.esgoto ?? []) {
+    const alertas: string[] = r.resposta.resultado.alertas;
+    for (const t of r.resposta.resultado.trechos) {
+      const m = r.montada.trechos.find((x) => x.id === t.id);
+      let melhor: { a: [number, number]; b: [number, number]; L: number } | null = null;
+      for (const sg of m?.segmentos ?? []) {
+        if (sg.vertical || sg.pavimentoId !== pav.id) continue;
+        const a = P(sg.x1, sg.y1), b = P(sg.x2, sg.y2), L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (!melhor || L > melhor.L) melhor = { a, b, L };
+      }
+      if (!melhor || melhor.L < 8) continue;
+      doc.setTextColor(...(alertas.some((a) => a.startsWith(`ERRO trecho ${t.id}:`)) ? ([220, 30, 30] as RGB) : OCRE));
+      textoAoLongo(doc, `ø${t.dn}${t.declividade != null ? " i=" + fmt(t.declividade * 100, 1) + "%" : ""}`, melhor.a, melhor.b, -2.6);
+    }
+  }
   // diâmetros por trecho (no maior segmento do trecho neste pavimento)
   doc.setFontSize(1.8 * PT); doc.setTextColor(...AZUL);
   for (const r of redes) for (const t of r.montada.trechos) {
@@ -200,7 +227,7 @@ function desenharPlanta(doc: jsPDF, e: EntradaPrancha, pav: Pavimento, detalhes:
   }
   // símbolos
   for (const x of els) {
-    if (x.tipo === "tubo") continue;
+    if (ehSegmento(x)) continue;
     const [px, py] = P(x.x, x.y);
     if (x.tipo === "aparelho") {
       doc.setDrawColor(...AZUL); doc.setFillColor(255, 255, 255); doc.setLineWidth(0.3);
@@ -220,6 +247,27 @@ function desenharPlanta(doc: jsPDF, e: EntradaPrancha, pav: Pavimento, detalhes:
     } else if (x.tipo === "coluna") {
       const dnc = dnDoEl.get(x.id);
       balao(doc, px, py, x.rotulo || "AF", dnc ? `ø${dnc}` : "");
+    } else if (x.tipo === "ponto_esgoto") {
+      doc.setDrawColor(...OCRE); doc.setFillColor(255, 255, 255); doc.setLineWidth(0.3);
+      doc.rect(px - 1, py - 1, 2, 2, "FD");
+      doc.setFontSize(1.8 * PT); doc.setTextColor(...OCRE);
+      doc.text(SIGLAS_ES[x.chave] ?? "", px + 1.6, py - 1.4);
+    } else if (x.tipo === "caixa_esgoto") {
+      doc.setDrawColor(...OCRE); doc.setFillColor(255, 245, 225); doc.setLineWidth(0.35);
+      const k = x.modelo === "inspecao" || x.modelo === "gordura" ? 3 : 1.8;
+      if (x.modelo === "ralo") doc.circle(px, py, 1.4, "FD"); else doc.rect(px - k, py - k, 2 * k, 2 * k, "FD");
+      if (x.modelo === "sifonada") doc.circle(px, py, 1, "S");
+      doc.setFontSize(1.8 * PT); doc.setTextColor(...OCRE);
+      doc.text(x.rotulo || MODELOS_CAIXA[x.modelo].sigla, px + k + 0.8, py - k);
+    } else if (x.tipo === "tubo_queda") {
+      doc.setDrawColor(...OCRE); doc.setFillColor(255, 255, 255); doc.setLineWidth(0.4);
+      doc.circle(px, py, 2.4, "FD");
+      doc.setFontSize(1.7 * PT); doc.setTextColor(...OCRE);
+      doc.text(x.rotulo || "TQ", px, py + 0.7, { align: "center" });
+    } else if (x.tipo === "saida_esgoto") {
+      doc.setFillColor(...OCRE);
+      doc.triangle(px - 2, py - 2, px + 2.5, py, px - 2, py + 2, "F");
+      doc.setFontSize(1.8 * PT); doc.setTextColor(...OCRE); doc.text(x.rotulo || "Saída", px + 3.5, py + 0.7);
     }
   }
   // chamadas dos detalhes
@@ -233,7 +281,9 @@ function desenharPlanta(doc: jsPDF, e: EntradaPrancha, pav: Pavimento, detalhes:
   for (const dt of detalhes) { const a = P(dt.bbox[0], dt.bbox[3]); doc.text(dt.nome, a[0], a[1] - 1); }
 
   // título
-  tituloVista(doc, `Planta — ${pav.nome} — Água fria`, `Escala 1:${den}`, ax0 + 2, ay1 - 4);
+  const temEs = els.some((x) => x.tipo === "tubo_esgoto");
+  const temAf = els.some((x) => x.tipo === "tubo");
+  tituloVista(doc, `Planta — ${pav.nome} — ${temAf && temEs ? "Água fria e esgoto" : temEs ? "Esgoto" : "Água fria"}`, `Escala 1:${den}`, ax0 + 2, ay1 - 4);
 }
 
 // ============================================================ isométricos
@@ -452,6 +502,9 @@ function desenharLegenda(doc: jsPDF, x: number, y: number, w: number): number {
     [(px, py) => { doc.setDrawColor(...AZUL); doc.setFillColor(255, 255, 255); doc.setLineWidth(0.3); doc.circle(px, py, 1.1, "FD"); doc.setFillColor(...AZUL); doc.circle(px, py, 0.45, "F"); }, "Ponto de utilização"],
     [(px, py) => gravata(doc, px, py, 0, 1.2), "Registro (RG gaveta · RP pressão · RE esfera)"],
     [(px, py) => balao(doc, px, py, "AF", "", 2.6), "Coluna de água fria"],
+    [(px, py) => { doc.setDrawColor(...OCRE); doc.setLineWidth(0.6); doc.line(px - 4, py, px + 4, py); doc.setFillColor(...OCRE); doc.triangle(px + 1.4, py, px - 1, py - 1, px - 1, py + 1, "F"); }, "Tubulação de esgoto — PVC série normal (seta = escoamento)"],
+    [(px, py) => { doc.setDrawColor(...OCRE); doc.setFillColor(255, 245, 225); doc.setLineWidth(0.35); doc.rect(px - 1.8, py - 1.8, 3.6, 3.6, "FD"); doc.circle(px, py, 1, "S"); }, "Caixa sifonada (CS) · caixa de inspeção (CI) · ralo (RS)"],
+    [(px, py) => { doc.setDrawColor(...OCRE); doc.setFillColor(255, 255, 255); doc.circle(px, py, 2.2, "FD"); doc.setFontSize(1.5 * PT); doc.setTextColor(...OCRE); doc.text("TQ", px, py + 0.6, { align: "center" }); }, "Tubo de queda"],
     [(px, py) => { doc.setDrawColor(...ROXO); doc.setLineDashPattern([1.2, 0.6], 0); doc.setLineWidth(0.3); doc.rect(px - 4, py - 1.5, 8, 3); doc.setLineDashPattern([], 0); }, "Área de detalhe (isométrico)"],
   ];
   doc.setFontSize(2 * PT);
@@ -590,7 +643,7 @@ function chamada(doc: jsPDF, a: [number, number], linhas: string[]) {
 }
 
 function naReta(t: Elemento, x: number, y: number, tol: number) {
-  if (t.tipo !== "tubo") return false;
+  if (!ehSegmento(t)) return false;
   const L2 = (t.x2 - t.x1) ** 2 + (t.y2 - t.y1) ** 2 || 1;
   const s = Math.max(0, Math.min(1, ((x - t.x1) * (t.x2 - t.x1) + (y - t.y1) * (t.y2 - t.y1)) / L2));
   return Math.hypot(t.x1 + s * (t.x2 - t.x1) - x, t.y1 + s * (t.y2 - t.y1) - y) < tol;

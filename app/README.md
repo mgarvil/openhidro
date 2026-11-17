@@ -62,3 +62,12 @@ temporário e lê a resposta JSON (ver `src/openhidro/ponte.py`). Não é precis
   registros (IfcValve), pontos (IfcSanitaryTerminal), reservatório (IfcTank), sistema de água fria e
   propriedades de cálculo (DN, vazão, velocidade). Validação: `python scripts/validar_ifc.py arquivo.ifc`
 - **Prancha**: folha extra com o esquema vertical de cada coluna (níveis, ramais, registros, Ø, alturas)
+
+## 0.6 — esgoto
+- Aba **Esgoto**: Saída (ligação à rede pública), Tubo (no sentido do escoamento, com altura e
+  declividade), Ponto (bacia, chuveiro, lavatório, pia, tanque, mictórios…), Caixa (sifonada,
+  inspeção, gordura, ralo) e Tubo de queda entre pavimentos
+- `src/modelo/redeEsgoto.ts` monta a rede (descidas dos pontos, junções, tubo de queda) e o motor
+  dimensiona pela NBR 8160 (UHC, tipo de trecho, DN, declividade mínima); Ø e i% no desenho
+- Materiais de esgoto (tubos, joelhos, junções, reduções, caixas, ralos, terminal de ventilação),
+  planta de esgoto na prancha, peças em 3D e sistema SEWAGE no IFC

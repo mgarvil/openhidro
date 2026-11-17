@@ -3,7 +3,7 @@
 // (IfcValve), pontos de utilização (IfcSanitaryTerminal), reservatório (IfcTank) e o sistema
 // (IfcDistributionSystem DOMESTICCOLDWATER), com propriedades de cálculo em "OpenHidro_AguaFria".
 // Escrito à mão (sem dependências), a partir do esquema IFC4 publicado pela buildingSMART.
-import { aparelho, MODELOS_REGISTRO, SIGLAS, type Elemento } from "../modelo/elementos";
+import { aparelho, MODELOS_CAIXA, MODELOS_REGISTRO, SIGLAS, type Elemento } from "../modelo/elementos";
 import type { RedeMontada } from "../modelo/rede";
 import type { Pavimento } from "../projeto";
 
@@ -13,6 +13,7 @@ export interface EntradaIfc {
   pavimentos: Pavimento[];
   escala: number;
   redes: { montada: RedeMontada; dn: Map<string, number> | null; trechos?: Map<string, { q: number; v: number }> }[];
+  esgoto?: { montada: Pick<RedeMontada, "grafo">; dn: Map<string, number> | null; dec?: Map<string, number | null> }[];
   versao: string;
 }
 
@@ -136,6 +137,50 @@ export function gerarIfc(e: EntradaIfc): string {
       objeto("IFCPIPEFITTING", nome, no.pav, c, itens, tipo);
     }
   }
+  // esgoto (sistema separado)
+  const sisAF = sistema.splice(0);
+  for (const { montada, dn, dec } of e.esgoto ?? []) {
+    const G = montada.grafo;
+    const inc = new Map<number, { o: number; dn: number }[]>();
+    for (const a of G.arestas) {
+      if (a.el) usados.add(a.el);
+      const p = G.nos[a.a], q = G.nos[a.b], d = dn?.get(a.trecho) ?? 100;
+      const A: V3 = [p.x, p.y, p.z], B: V3 = [q.x, q.y, q.z];
+      const ref = objeto("IFCPIPESEGMENT", `Tubo PVC esgoto ${d} mm`, p.z <= q.z ? p.pav : q.pav, A, [cil([0, 0, 0], sub(B, A), d / 2000)], "RIGIDSEGMENT", str(a.trecho));
+      const i = dec?.get(a.trecho);
+      props(ref, "OpenHidro_Esgoto", [["Trecho", `IFCLABEL(${str(a.trecho)})`], ["DN", `IFCPOSITIVELENGTHMEASURE(${num(d / 1000)})`],
+        ["Material", "IFCLABEL('PVC esgoto série normal (NBR 5688)')"], ...(i != null ? [["Declividade", `IFCREAL(${num(i)})`]] as [string, string][] : [])]);
+      (inc.get(a.a) ?? inc.set(a.a, []).get(a.a)!).push({ o: a.b, dn: d });
+      (inc.get(a.b) ?? inc.set(a.b, []).get(a.b)!).push({ o: a.a, dn: d });
+    }
+    for (const no of G.nos) {
+      const es = inc.get(no.i) ?? [];
+      const c: V3 = [no.x, no.y, no.z];
+      const el = no.res ? porEl.get(no.res) : null;
+      if (el?.tipo === "caixa_esgoto") {
+        if (el.modelo === "inspecao" || el.modelo === "gordura")
+          objeto("IFCDISTRIBUTIONCHAMBERELEMENT", MODELOS_CAIXA[el.modelo].nome, no.pav, c, [cil([0, 0, -0.6], [0, 0, 0], 0.3)], el.modelo === "inspecao" ? "INSPECTIONCHAMBER" : "SUMP");
+        else objeto("IFCWASTETERMINAL", MODELOS_CAIXA[el.modelo].nome, no.pav, c, [cil([0, 0, -0.2], [0, 0, 0.05], el.modelo === "ralo" ? 0.05 : 0.075)], "FLOORTRAP");
+        continue;
+      }
+      if (el?.tipo === "saida_esgoto" || es.length < 2) continue;
+      const dirs = es.map((x) => norm(sub([G.nos[x.o].x, G.nos[x.o].y, G.nos[x.o].z], c)));
+      const reta = es.length === 2 && dot(dirs[0], dirs[1]) < -0.98;
+      if (reta && es[0].dn === es[1].dn) continue;
+      const max = Math.max(...es.map((x) => x.dn));
+      const tipo = es.length >= 3 ? "JUNCTION" : reta ? "TRANSITION" : "BEND";
+      const itens = dirs.map((d, i) => { const r = es[i].dn / 2000; return cil([0, 0, 0], scale(d, Math.max(r * 2, 0.04)), r * 1.15); });
+      objeto("IFCPIPEFITTING", `${es.length >= 3 ? "Junção" : reta ? "Redução" : "Joelho"} esgoto ${max} mm`, no.pav, c, itens, tipo);
+    }
+  }
+  const sisES = sistema.splice(0);
+  sistema.push(...sisAF);
+  if (sisES.length) {
+    const s2 = add(`IFCDISTRIBUTIONSYSTEM('${guid()}',$,'Esgoto sanitário',$,$,$,.SEWAGE.)`);
+    add(`IFCRELASSIGNSTOGROUP('${guid()}',$,$,$,(${sisES.join(",")}),$,${s2})`);
+    add(`IFCRELSERVICESBUILDINGS('${guid()}',$,$,$,${s2},(${edificacao}))`);
+  }
+
   for (const el of e.elementos) {
     if (el.tipo !== "tubo" || usados.has(el.id) || !andar.has(el.pavimentoId)) continue;
     const z = andar.get(el.pavimentoId)!.cota + el.altura, d = el.dn ?? 25;

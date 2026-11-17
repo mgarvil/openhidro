@@ -2,15 +2,19 @@
 // orto, desfazer/refazer e o desenho dos elementos e resultados por cima da planta.
 // Toda alteração passa pelos comandos registrados em main.ts, então mouse, teclado e (no M3) o Claude
 // produzem exatamente o mesmo efeito.
-import { aparelho, MODELOS_REGISTRO, SIGLAS, type ElAparelho, type ElColuna, type Elemento, type ElRegistro, type ElTubo } from "./modelo/elementos";
+import { aparelho, aparelhoEs, ehSegmento, MODELOS_CAIXA, MODELOS_REGISTRO, SIGLAS, SIGLAS_ES, type ElAparelho, type ElCaixaEsgoto, type ElColuna,
+         type Elemento, type ElRegistro, type Segmento } from "./modelo/elementos";
+import type { RedeEsgotoMontada } from "./modelo/redeEsgoto";
 import type { LinhaMaterial } from "./modelo/quantitativo";
 import type { RedeMontada } from "./modelo/rede";
 import { novoId, type Pavimento, type Projeto } from "./projeto";
 import type { Vista2D } from "./vista/vista2d";
 
-export type NomeFerramenta = "selecionar" | "tubo" | "aparelho" | "reservatorio" | "coluna" | "registro";
+export type NomeFerramenta = "selecionar" | "tubo" | "aparelho" | "reservatorio" | "coluna" | "registro"
+  | "ponto_esgoto" | "tubo_esgoto" | "caixa_esgoto" | "tubo_queda" | "saida_esgoto";
 
-export interface Opcoes { modeloRegistro: ElRegistro["modelo"]; alturaTubo: number; aparelho: string; alturaAparelho: number | null; alturaReservatorio: number; nivelAgua: number; colunaTopo: string | null }
+export interface Opcoes { aparelhoEs: string; alturaTuboEs: number; declividadeEs: number; modeloCaixa: ElCaixaEsgoto["modelo"]; alturaCaixa: number;
+  modeloRegistro: ElRegistro["modelo"]; alturaTubo: number; aparelho: string; alturaAparelho: number | null; alturaReservatorio: number; nivelAgua: number; colunaTopo: string | null }
 
 interface Snap { x: number; y: number; tipo: "ponto" | "meio" | "orto" | "planta" | "livre" }
 
@@ -24,16 +28,20 @@ export interface ResultadoCalculo {
   erros: { mensagem: string; elementos: string[] }[];
   avisos: { mensagem: string; elementos: string[] }[];
   materiais: LinhaMaterial[];
+  esgoto: { montada: RedeEsgotoMontada; resposta: any }[];
+  trechosEs: ResultadoTrechoEs[];
 }
+export interface ResultadoTrechoEs { rede: string; id: string; de: string; para: string; tipo: string; uhc: number; dn: number; dec: number | null; L: number; ok: boolean }
 
 const COR = {
-  tubo: "#3fb6ff", tuboOutro: "rgba(63,182,255,0.18)", ponto: "#56d39a", res: "#7fb3ff", coluna: "#c49bff",
+  tubo: "#3fb6ff", tuboOutro: "rgba(63,182,255,0.18)", esgoto: "#e3a33a", esgotoOutro: "rgba(227,163,58,0.18)", ponto: "#56d39a", res: "#7fb3ff", coluna: "#c49bff",
   sel: "#ffd23f", ruim: "#ff5c5c", texto: "#e8eef6", previa: "#ffd23f", snap: "#ffd23f",
 };
 
 export class Editor {
   ferramenta: NomeFerramenta = "selecionar";
-  opcoes: Opcoes = { modeloRegistro: "gaveta", alturaTubo: 2.6, aparelho: "lavatorio", alturaAparelho: null, alturaReservatorio: 0.5, nivelAgua: 0, colunaTopo: null };
+  opcoes: Opcoes = { aparelhoEs: "bacia", alturaTuboEs: -0.3, declividadeEs: 0.02, modeloCaixa: "sifonada", alturaCaixa: -0.3,
+                     modeloRegistro: "gaveta", alturaTubo: 2.6, aparelho: "lavatorio", alturaAparelho: null, alturaReservatorio: 0.5, nivelAgua: 0, colunaTopo: null };
   selecao = new Set<string>();
   orto = false;
   snapPlanta = true;
@@ -75,7 +83,7 @@ export class Editor {
     const a = this.pavAtivo;
     const cota = new Map(this.p.pavimentos.map((p) => [p.id, p.cota]));
     return this.p.elementos.filter((e) => {
-      if (e.tipo !== "coluna") return e.pavimentoId === a.id;
+      if (e.tipo !== "coluna" && e.tipo !== "tubo_queda") return e.pavimentoId === a.id;
       const z0 = cota.get(e.pavimentoId) ?? 0, z1 = cota.get(e.topoId) ?? z0;
       return a.cota >= Math.min(z0, z1) - 1e-6 && a.cota <= Math.max(z0, z1) + 1e-6;
     });
@@ -128,6 +136,11 @@ export class Editor {
     if (el.tipo === "reservatorio") { el.altura ??= this.opcoes.alturaReservatorio; el.nivelAgua ??= this.opcoes.nivelAgua; }
     if (el.tipo === "coluna" && !el.topoId) throw new Error("Coluna sem pavimento de topo");
     if (el.tipo === "registro") el.modelo ??= this.opcoes.modeloRegistro;
+    if (el.tipo === "ponto_esgoto") { if (!aparelhoEs(el.chave)) throw new Error(`Aparelho de esgoto desconhecido: ${el.chave}`); el.quantidade ??= 1; }
+    if (el.tipo === "tubo_esgoto") { el.altura ??= this.opcoes.alturaTuboEs; el.declividade ??= this.opcoes.declividadeEs; }
+    if (el.tipo === "caixa_esgoto") { el.modelo ??= this.opcoes.modeloCaixa; el.altura ??= this.opcoes.alturaCaixa; }
+    if (el.tipo === "saida_esgoto") el.altura ??= this.opcoes.alturaTuboEs;
+    if (el.tipo === "tubo_queda" && !el.topoId) throw new Error("Tubo de queda sem pavimento de topo");
     this.checkpoint();
     this.p.elementos.push(el);
     this.alterou();
@@ -163,8 +176,8 @@ export class Editor {
   }
 
   definirFerramenta(f: NomeFerramenta) {
-    if (f === "coluna" && this.p.pavimentos.length < 2) {
-      this.mensagem("A coluna liga dois pavimentos: crie outro pavimento primeiro.", true);
+    if ((f === "coluna" || f === "tubo_queda") && this.p.pavimentos.length < 2) {
+      this.mensagem("A coluna e o tubo de queda ligam dois pavimentos: crie outro pavimento primeiro.", true);
       return;
     }
     this.ferramenta = f;
@@ -182,6 +195,11 @@ export class Editor {
       reservatorio: "Reservatório: clique onde fica a saída de água.",
       coluna: "Coluna: clique onde a tubulação sobe/desce entre os pavimentos.",
       registro: "Registro: clique sobre um tubo.",
+      ponto_esgoto: "Ponto de esgoto: clique na saída do aparelho (bacia, ralo do chuveiro, lavatório…).",
+      tubo_esgoto: "Tubo de esgoto: desenhe no sentido do escoamento, da ponta até a caixa/saída. F8 = orto.",
+      caixa_esgoto: "Caixa: clique para inserir (sifonada, inspeção, gordura, ralo).",
+      tubo_queda: "Tubo de queda: clique onde o esgoto desce entre os pavimentos.",
+      saida_esgoto: "Saída: clique na ligação à rede pública (último ponto da rede de esgoto).",
     };
     if (dica[f]) this.mensagem(dica[f]);
   }
@@ -210,9 +228,10 @@ export class Editor {
   private snap(x: number, y: number): Snap {
     const tol = 12 / this.vista.pxPorUnidade;
     const pts: [number, number][] = [];
-    const segs: ElTubo[] = [];
+    const segs: Segmento[] = [];
+    const esgoto = this.ferramenta.endsWith("esgoto") || this.ferramenta === "tubo_queda";
     for (const e of this.visiveis()) {
-      if (e.tipo === "tubo") { pts.push([e.x1, e.y1], [e.x2, e.y2]); segs.push(e); }
+      if (ehSegmento(e)) { pts.push([e.x1, e.y1], [e.x2, e.y2]); if ((e.tipo === "tubo_esgoto") === esgoto) segs.push(e); }
       else pts.push([e.x, e.y]);
     }
     let melhor: Snap | null = null, dmin = tol;
@@ -261,13 +280,16 @@ export class Editor {
     }
     const s = this.snap(x, y);
     try {
-      if (this.ferramenta === "tubo") {
+      if (this.ferramenta === "tubo" || this.ferramenta === "tubo_esgoto") {
         if (!this.cadeia) { this.cadeia = [s.x, s.y]; this.vista.redesenhar(); return; }
         const [ax, ay] = this.cadeia;
         if (Math.hypot(s.x - ax, s.y - ay) * this.vista.pxPorUnidade < 2) return;
-        this.inserir({ tipo: "tubo", x1: ax, y1: ay, x2: s.x, y2: s.y, altura: this.opcoes.alturaTubo, dn: null });
-        // chegou num ponto de utilização ou reservatório: encerra a tubulação
-        const alvo = this.visiveis().find((el) => (el.tipo === "aparelho" || el.tipo === "reservatorio") && el.x === s.x && el.y === s.y);
+        if (this.ferramenta === "tubo")
+          this.inserir({ tipo: "tubo", x1: ax, y1: ay, x2: s.x, y2: s.y, altura: this.opcoes.alturaTubo, dn: null });
+        else
+          this.inserir({ tipo: "tubo_esgoto", x1: ax, y1: ay, x2: s.x, y2: s.y, altura: this.opcoes.alturaTuboEs, declividade: this.opcoes.declividadeEs, dn: null });
+        // chegou num ponto, reservatório, caixa ou saída: encerra a tubulação
+        const alvo = this.visiveis().find((el) => ["aparelho", "reservatorio", "caixa_esgoto", "saida_esgoto"].includes(el.tipo) && !ehSegmento(el) && el.x === s.x && el.y === s.y);
         this.cadeia = alvo ? null : [s.x, s.y];
       } else if (this.ferramenta === "aparelho") {
         this.inserir({ tipo: "aparelho", chave: this.opcoes.aparelho, x: s.x, y: s.y,
@@ -278,6 +300,17 @@ export class Editor {
       } else if (this.ferramenta === "registro") {
         if (s.tipo !== "meio" && !(s.tipo === "ponto" && this.tuboEm(s.x, s.y))) throw new Error("Clique sobre um tubo para inserir o registro");
         this.inserir({ tipo: "registro", x: s.x, y: s.y, modelo: this.opcoes.modeloRegistro } as Partial<ElRegistro> & { tipo: "registro" });
+      } else if (this.ferramenta === "ponto_esgoto") {
+        this.inserir({ tipo: "ponto_esgoto", chave: this.opcoes.aparelhoEs, x: s.x, y: s.y, quantidade: 1 } as any);
+      } else if (this.ferramenta === "caixa_esgoto") {
+        this.inserir({ tipo: "caixa_esgoto", modelo: this.opcoes.modeloCaixa, x: s.x, y: s.y, altura: this.opcoes.alturaCaixa, rotulo: undefined } as any);
+      } else if (this.ferramenta === "saida_esgoto") {
+        this.inserir({ tipo: "saida_esgoto", x: s.x, y: s.y, altura: this.opcoes.alturaTuboEs, rotulo: "Saída" } as any);
+        this.definirFerramenta("selecionar");
+      } else if (this.ferramenta === "tubo_queda") {
+        const topo = this.colunasTopoPadrao();
+        if (!topo) throw new Error("Crie outro pavimento para o tubo de queda");
+        this.inserir({ tipo: "tubo_queda", x: s.x, y: s.y, topoId: topo, rotulo: this.proximoRotulo("TQ-") } as any);
       } else if (this.ferramenta === "coluna") {
         const topo = this.colunasTopoPadrao();
         if (!topo) throw new Error("Crie outro pavimento para a coluna chegar");
@@ -302,15 +335,15 @@ export class Editor {
     }
     const [xa, xb] = [Math.min(c.x0, x), Math.max(c.x0, x)], [ya, yb] = [Math.min(c.y0, y), Math.max(c.y0, y)];
     const dentro = (px: number, py: number) => px >= xa && px <= xb && py >= ya && py <= yb;
-    const ids = this.visiveis().filter((el) => el.tipo === "tubo" ? dentro(el.x1, el.y1) && dentro(el.x2, el.y2) : dentro(el.x, el.y)).map((el) => el.id);
+    const ids = this.visiveis().filter((el) => ehSegmento(el) ? dentro(el.x1, el.y1) && dentro(el.x2, el.y2) : dentro(el.x, el.y)).map((el) => el.id);
     this.selecionar(ids, somar);
   }
 
   /** Tubo do pavimento ativo que passa por (x, y). */
-  tuboEm(x: number, y: number): ElTubo | null {
+  tuboEm(x: number, y: number): Segmento | null {
     const tol = 2 / this.vista.pxPorUnidade;
     for (const e of this.visiveis()) {
-      if (e.tipo !== "tubo") continue;
+      if (!ehSegmento(e)) continue;
       const L2 = (e.x2 - e.x1) ** 2 + (e.y2 - e.y1) ** 2 || 1;
       const s = Math.max(0, Math.min(1, ((x - e.x1) * (e.x2 - e.x1) + (y - e.y1) * (e.y2 - e.y1)) / L2));
       if (Math.hypot(e.x1 + s * (e.x2 - e.x1) - x, e.y1 + s * (e.y2 - e.y1) - y) < tol) return e;
@@ -324,13 +357,13 @@ export class Editor {
     let melhor: string | null = null, dmin = tol;
     const vis = this.visiveis();
     for (const e of vis) {
-      if (e.tipo === "tubo") continue;
+      if (ehSegmento(e)) continue;
       const d = Math.hypot(e.x - x, e.y - y);
       if (d < dmin * 1.4) { dmin = d / 1.4; melhor = e.id; }
     }
     if (melhor) return melhor;
     for (const e of vis) {
-      if (e.tipo !== "tubo") continue;
+      if (!ehSegmento(e)) continue;
       const L2 = (e.x2 - e.x1) ** 2 + (e.y2 - e.y1) ** 2 || 1;
       const s = Math.max(0, Math.min(1, ((x - e.x1) * (e.x2 - e.x1) + (y - e.y1) * (e.y2 - e.y1)) / L2));
       const d = Math.hypot(e.x1 + s * (e.x2 - e.x1) - x, e.y1 + s * (e.y2 - e.y1) - y);
@@ -350,7 +383,7 @@ export class Editor {
     if (!els.length) return;
     const xs: number[] = [], ys: number[] = [];
     for (const e of els) {
-      if (e.tipo === "tubo") { xs.push(e.x1, e.x2); ys.push(e.y1, e.y2); } else { xs.push(e.x); ys.push(e.y); }
+      if (ehSegmento(e)) { xs.push(e.x1, e.x2); ys.push(e.y1, e.y2); } else { xs.push(e.x); ys.push(e.y); }
     }
     const m = 1.5 / this.p.config.escalaMetro; // pelo menos 1,5 m de folga
     this.vista.enquadrar(Math.min(...xs) - m, Math.min(...ys) - m, Math.max(...xs) + m, Math.max(...ys) + m, 1.1);
@@ -369,23 +402,29 @@ export class Editor {
       const m = res.redes.find((r) => r.montada.id === t.rede)?.montada.trechos.find((x) => x.id === t.id);
       m?.elementos.forEach((id) => tuboRuim.add(id));
     }
+    if (res) for (const t of res.trechosEs) if (!t.ok) {
+      const m = res.esgoto.find((r) => r.montada.id === t.rede)?.montada.trechos.find((x) => x.id === t.id);
+      m?.elementos.forEach((id) => tuboRuim.add(id));
+    }
     const fonte = (px: number, peso = 500) => `${peso} ${px}px "Segoe UI", Arial, sans-serif`;
     ctx.lineCap = "round";
 
     // tubos de outros pavimentos, bem apagados, como referência
-    ctx.strokeStyle = COR.tuboOutro;
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (const e of this.p.elementos) {
-      if (e.tipo !== "tubo" || e.pavimentoId === this.pavAtivo.id) continue;
-      const [a, b] = [T(e.x1, e.y1), T(e.x2, e.y2)];
-      ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
+    for (const tipo of ["tubo", "tubo_esgoto"] as const) {
+      ctx.strokeStyle = tipo === "tubo" ? COR.tuboOutro : COR.esgotoOutro;
+      ctx.beginPath();
+      for (const e of this.p.elementos) {
+        if (e.tipo !== tipo || e.pavimentoId === this.pavAtivo.id) continue;
+        const [a, b] = [T(e.x1, e.y1), T(e.x2, e.y2)];
+        ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
+      }
+      ctx.stroke();
     }
-    ctx.stroke();
 
     // tubos
     for (const e of vis) {
-      if (e.tipo !== "tubo") continue;
+      if (!ehSegmento(e)) continue;
       const [a, b] = [T(e.x1, e.y1), T(e.x2, e.y2)];
       const sel = this.selecao.has(e.id), prob = this.problemas.has(e.id) || tuboRuim.has(e.id);
       if (sel || prob) {
@@ -394,16 +433,24 @@ export class Editor {
         ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
         ctx.globalAlpha = 1;
       }
-      ctx.strokeStyle = prob ? COR.ruim : COR.tubo;
-      ctx.lineWidth = 2.2;
+      const es = e.tipo === "tubo_esgoto";
+      ctx.strokeStyle = prob ? COR.ruim : es ? COR.esgoto : COR.tubo;
+      ctx.lineWidth = es ? 3 : 2.2;
       ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+      if (es) {   // seta do sentido de escoamento
+        const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+        if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 30) {
+          ctx.save(); ctx.translate(mx, my); ctx.rotate(ang); ctx.fillStyle = ctx.strokeStyle;
+          ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-4, -4); ctx.lineTo(-4, 4); ctx.closePath(); ctx.fill(); ctx.restore();
+        }
+      }
     }
 
     // pontos, reservatórios, colunas
     ctx.textBaseline = "middle";
     ctx.textAlign = "left";
     for (const e of vis) {
-      if (e.tipo === "tubo") continue;
+      if (ehSegmento(e)) continue;
       const [x, y] = T(e.x, e.y);
       const sel = this.selecao.has(e.id);
       let prob = this.problemas.has(e.id);
@@ -429,6 +476,31 @@ export class Editor {
         ctx.beginPath(); ctx.rect(x - r, y - r, 2 * r, 2 * r); ctx.fill(); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x + r, y); ctx.stroke();
         rot = e.rotulo || "RES";
+      } else if (e.tipo === "ponto_esgoto") {
+        const k = raio * 0.8;
+        ctx.strokeStyle = prob ? COR.ruim : COR.esgoto; ctx.fillStyle = "#15191f";
+        ctx.beginPath(); ctx.rect(x - k, y - k, 2 * k, 2 * k); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, k * 0.45, 0, Math.PI * 2); ctx.stroke();
+        rot = e.rotulo || SIGLAS_ES[e.chave] || "P";
+        if (e.quantidade > 1) rot += ` ×${e.quantidade}`;
+      } else if (e.tipo === "caixa_esgoto") {
+        const k = raio * 1.2;
+        ctx.strokeStyle = prob ? COR.ruim : COR.esgoto; ctx.fillStyle = "rgba(227,163,58,0.15)";
+        if (e.modelo === "ralo") { ctx.beginPath(); ctx.arc(x, y, k * 0.8, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+        else { ctx.beginPath(); ctx.rect(x - k, y - k, 2 * k, 2 * k); ctx.fill(); ctx.stroke(); }
+        if (e.modelo === "sifonada") { ctx.beginPath(); ctx.arc(x, y, k * 0.55, 0, Math.PI * 2); ctx.stroke(); }
+        rot = e.rotulo || MODELOS_CAIXA[e.modelo].sigla;
+      } else if (e.tipo === "saida_esgoto") {
+        const k = raio * 1.3;
+        ctx.fillStyle = COR.esgoto;
+        ctx.beginPath(); ctx.moveTo(x - k, y - k); ctx.lineTo(x + k, y); ctx.lineTo(x - k, y + k); ctx.closePath(); ctx.fill();
+        rot = e.rotulo || "Saída";
+      } else if (e.tipo === "tubo_queda") {
+        ctx.strokeStyle = COR.esgoto; ctx.fillStyle = "#15191f"; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(x, y, raio * 0.95, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = COR.esgoto; ctx.beginPath(); ctx.arc(x, y, raio * 0.4, 0, Math.PI * 2); ctx.fill();
+        const topo = this.p.pavimentos.find((p) => p.id === e.topoId);
+        rot = `${e.rotulo || "TQ"} ${topo && topo.cota > this.pavAtivo.cota ? (e.pavimentoId !== this.pavAtivo.id ? "↕" : "↑") : "↓"}`;
       } else if (e.tipo === "registro") {
         const t = this.tuboEm(e.x, e.y);
         const ang = t ? Math.atan2(-(t.y2 - t.y1), t.x2 - t.x1) : 0;
@@ -498,11 +570,37 @@ export class Editor {
       }
     }
 
+    // esgoto: diâmetro e declividade por trecho
+    if (res) {
+      ctx.textAlign = "center";
+      for (const t of res.trechosEs) {
+        const m = res.esgoto.find((r) => r.montada.id === t.rede)?.montada.trechos.find((x) => x.id === t.id);
+        if (!m) continue;
+        let maior: { a: [number, number]; b: [number, number]; L: number } | null = null;
+        for (const sg of m.segmentos) {
+          if (sg.vertical || sg.pavimentoId !== this.pavAtivo.id) continue;
+          const a = T(sg.x1, sg.y1), b = T(sg.x2, sg.y2), L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          if (!maior || L > maior.L) maior = { a, b, L };
+        }
+        if (!maior || maior.L < 18) continue;
+        const cx = (maior.a[0] + maior.b[0]) / 2, cy = (maior.a[1] + maior.b[1]) / 2;
+        let ang = Math.atan2(maior.b[1] - maior.a[1], maior.b[0] - maior.a[0]);
+        if (ang > Math.PI / 2) ang -= Math.PI; else if (ang < -Math.PI / 2) ang += Math.PI;
+        const txt = `Ø${t.dn}${t.dec != null ? "  i=" + (t.dec * 100).toFixed(1).replace(".", ",").replace(",0", "") + "%" : ""}`;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(ang);
+        ctx.font = fonte(11, 700);
+        const w = ctx.measureText(txt).width + 6;
+        ctx.fillStyle = "rgba(21,25,31,0.85)"; ctx.fillRect(-w / 2, 4, w, 13);
+        ctx.fillStyle = t.ok ? "#ffd89a" : COR.ruim; ctx.fillText(txt, 0, 11);
+        ctx.restore();
+      }
+    }
+
     // prévia da ferramenta
     const c = this.cursor;
     if (this.ferramenta !== "selecionar" && c) {
       const [x, y] = T(c.x, c.y);
-      if (this.ferramenta === "tubo" && this.cadeia) {
+      if ((this.ferramenta === "tubo" || this.ferramenta === "tubo_esgoto") && this.cadeia) {
         const a = T(this.cadeia[0], this.cadeia[1]);
         ctx.setLineDash([6, 4]); ctx.strokeStyle = COR.previa; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(x, y); ctx.stroke(); ctx.setLineDash([]);

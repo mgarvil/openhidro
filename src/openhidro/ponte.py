@@ -28,6 +28,7 @@ from .io import relatorio as R
 from .modelo import Rede
 from .catalogo import PONTOS, ROSCA_DN, catalogo
 from .normas import nbr5626 as N
+from .normas import nbr8160 as E
 
 
 def catalogo_agua_fria() -> dict:
@@ -41,6 +42,15 @@ def catalogo_agua_fria() -> dict:
         ],
         "tubos": {m: [asdict(t) for t in ts] for m, ts in N.TUBOS.items()},
         "conexoes": sorted(N.LEQ_PVC),
+    }
+
+
+def catalogo_esgoto() -> dict:
+    return {
+        "aparelhos": [{"chave": a.chave, "descricao": a.descricao, "uhc": a.uhc, "dn_min": a.dn_min_ramal_descarga,
+                       "sifonado": a.sifonado_proprio} for a in E.APARELHOS_ES.values()],
+        "dns": E.DNS_ESGOTO,
+        "declividade_minima": {str(d): E.declividade_minima(d) for d in E.DNS_ESGOTO},
     }
 
 

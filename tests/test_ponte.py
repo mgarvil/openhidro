@@ -46,3 +46,8 @@ def test_catalogo_ids_unicos_e_fabricantes():
     for fab in ("Tigre", "Amanco"):
         assert any(i["fabricante"] == fab and i["familia"] == "te_reducao_90" and (i["dn"], i["dn2"]) == (50, 25) for i in itens)
         assert any(i["fabricante"] == fab and i["familia"] == "joelho_reducao_90_bucha_latao" and i["rosca"] == '1/2"' for i in itens)
+
+
+def test_catalogo_esgoto_em_dia():
+    gravado = json.loads((RAIZ / "app/src/dados/esgoto.json").read_text(encoding="utf-8"))
+    assert gravado == ponte.catalogo_esgoto(), "rode: python scripts/gerar_dados_app.py"

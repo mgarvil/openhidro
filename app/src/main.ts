@@ -2,7 +2,8 @@ import { carregarDxf, decodificarDxf, type Desenho } from "./dxf/carregar";
 import * as C from "./comandos";
 import { Editor, type NomeFerramenta, type ResultadoCalculo } from "./editor";
 import { aplicarDnImposto, montarRedes } from "./modelo/rede";
-import { barras, csvMateriais, FABRICANTES, listaDeMateriais } from "./modelo/quantitativo";
+import { barras, csvMateriais, FABRICANTES, listaDeMateriais, listaEsgoto } from "./modelo/quantitativo";
+import { montarRedesEsgoto } from "./modelo/redeEsgoto";
 import { chamarMotor, escolherArquivo, lerCaminho, salvarBinario, salvarTexto } from "./plataforma";
 import { lerProjeto, novoPavimento, novoProjeto, ordenarPavimentos, serializar, type Pavimento, type Projeto } from "./projeto";
 import { PainelCamadas } from "./ui/camadas";
@@ -13,7 +14,7 @@ import { Vista2D } from "./vista/vista2d";
 import { Vista3D } from "./vista/vista3d";
 import { construir3D } from "./modelo/pecas3d";
 
-const VERSAO = "0.5.0";
+const VERSAO = "0.6.0";
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const area = $("area");
@@ -236,7 +237,7 @@ C.registrar({ nome: "excluirPavimento", descricao: "Exclui um pavimento (o proje
     if (projeto.pavimentos.length === 1) { mensagem("O projeto precisa ter pelo menos um pavimento.", true); return; }
     if (!args?.semConfirmar && !confirmar(`Excluir o pavimento "${p.nome}" e tudo o que foi lançado nele?`)) return;
     projeto.pavimentos = projeto.pavimentos.filter((x) => x !== p);
-    projeto.elementos = projeto.elementos.filter((e) => e.pavimentoId !== p.id && !(e.tipo === "coluna" && e.topoId === p.id));
+    projeto.elementos = projeto.elementos.filter((e) => e.pavimentoId !== p.id && !((e.tipo === "coluna" || e.tipo === "tubo_queda") && e.topoId === p.id));
     editor.limparHistorico();
     desenhos.delete(p.id);
     if (projeto.pavimentoAtivo === p.id) projeto.pavimentoAtivo = projeto.pavimentos[0].id;
@@ -319,6 +320,16 @@ C.registrar({ nome: "inserirColuna", descricao: "Insere coluna {x, y, pavimento 
   executar: (a: any) => editor.inserir({ tipo: "coluna", x: a.x, y: a.y, pavimentoId: pavDe(a), topoId: pav(a.topo).id, rotulo: a.rotulo ?? editor.proximoRotulo("AF-") }).id });
 C.registrar({ nome: "inserirRegistro", descricao: "Insere registro sobre um tubo {x, y, modelo: gaveta|pressao|esfera, pavimento?}",
   executar: (a: any) => editor.inserir({ tipo: "registro", x: a.x, y: a.y, modelo: a.modelo ?? "gaveta", pavimentoId: pavDe(a) }).id });
+C.registrar({ nome: "inserirPontoEsgoto", descricao: "Insere ponto de esgoto {chave (bacia, lavatorio, chuveiro…), x, y, quantidade?, pavimento?}",
+  executar: (a: any) => editor.inserir({ tipo: "ponto_esgoto", chave: a.chave, x: a.x, y: a.y, quantidade: a.quantidade ?? 1, pavimentoId: pavDe(a) } as any).id });
+C.registrar({ nome: "inserirTuboEsgoto", descricao: "Insere tubo de esgoto no sentido do escoamento {x1, y1, x2, y2, altura?, declividade?, dn?, pavimento?}",
+  executar: (a: any) => editor.inserir({ tipo: "tubo_esgoto", x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2, altura: a.altura, declividade: a.declividade, dn: a.dn ?? null, pavimentoId: pavDe(a) } as any).id });
+C.registrar({ nome: "inserirCaixa", descricao: "Insere caixa {modelo: sifonada|inspecao|gordura|ralo, x, y, altura?, pavimento?}",
+  executar: (a: any) => editor.inserir({ tipo: "caixa_esgoto", modelo: a.modelo ?? "sifonada", x: a.x, y: a.y, altura: a.altura, pavimentoId: pavDe(a) } as any).id });
+C.registrar({ nome: "inserirTuboQueda", descricao: "Insere tubo de queda {x, y, pavimento (base), topo}",
+  executar: (a: any) => editor.inserir({ tipo: "tubo_queda", x: a.x, y: a.y, pavimentoId: pavDe(a), topoId: pav(a.topo).id, rotulo: a.rotulo ?? editor.proximoRotulo("TQ-") } as any).id });
+C.registrar({ nome: "inserirSaidaEsgoto", descricao: "Insere a saída de esgoto (ligação à rede pública) {x, y, altura?, pavimento?}",
+  executar: (a: any) => editor.inserir({ tipo: "saida_esgoto", x: a.x, y: a.y, altura: a.altura, pavimentoId: pavDe(a), rotulo: a.rotulo ?? "Saída" } as any).id });
 C.registrar({ nome: "excluirElementos", descricao: "Exclui elementos {ids}", executar: (a: any) => editor.excluir(a.ids) });
 C.registrar({ nome: "alterarElementos", descricao: "Altera propriedades {ids, dados}", executar: (a: any) => editor.alterar(a.ids, a.dados) });
 C.registrar({ nome: "selecionar", descricao: "Seleciona elementos {ids} e mostra na tela", executar: (a: any) => irPara(a.ids) });
@@ -330,8 +341,10 @@ C.registrar({ nome: "listarElementos", descricao: "Lista os elementos do projeto
 
 C.registrar({ nome: "calcular", descricao: "Dimensiona a água fria (NBR 5626) e mostra diâmetros e pressões", async executar() {
   const m = montarRedes(projeto.elementos, projeto.pavimentos, projeto.config.escalaMetro);
-  const r: ResultadoCalculo = { redes: [], trechos: [], pontos: [], alertas: [], erros: m.erros, avisos: m.avisos, materiais: [] };
-  if (!m.redes.length && !m.erros.length) { mensagem("Nada para calcular: lance um reservatório, tubos e pontos de utilização.", true); return; }
+  const me = montarRedesEsgoto(projeto.elementos, projeto.pavimentos, projeto.config.escalaMetro);
+  const r: ResultadoCalculo = { redes: [], trechos: [], pontos: [], alertas: [], erros: [...m.erros, ...me.erros], avisos: [...m.avisos, ...me.avisos],
+                                materiais: [], esgoto: [], trechosEs: [] };
+  if (!m.redes.length && !me.redes.length && !r.erros.length) { mensagem("Nada para calcular: lance água fria (reservatório, tubos, pontos) ou esgoto (pontos, tubos, saída).", true); return; }
   mensagem("Calculando…");
   for (const rm of m.redes) {
     aplicarDnImposto(rm, projeto.elementos);
@@ -350,26 +363,44 @@ C.registrar({ nome: "calcular", descricao: "Dimensiona a água fria (NBR 5626) e
     }
     r.alertas.push(...resp.resultado.alertas.map((a: string) => (m.redes.length > 1 ? `${rm.rede.nome}: ` : "") + a));
   }
+  for (const rm of me.redes) {
+    const porId = new Map(projeto.elementos.map((e) => [e.id, e]));
+    for (const t of rm.trechos) {
+      const dns = t.elementos.map((id) => porId.get(id)).filter((e) => e?.tipo === "tubo_esgoto").map((e: any) => e.dn ?? null);
+      if (dns.length && dns.every((d) => d != null && d === dns[0])) rm.rede.trechos.find((x: any) => x.id === t.id).dn = dns[0];
+    }
+    let resp: any;
+    try { resp = await chamarMotor({ acao: "dimensionar", rede: rm.rede }); }
+    catch (e: any) { r.erros.push({ mensagem: `Esgoto: ${e?.message ?? e}`, elementos: [rm.id] }); continue; }
+    r.esgoto.push({ montada: rm, resposta: resp });
+    const alertas: string[] = resp.resultado.alertas;
+    for (const t of resp.resultado.trechos)
+      r.trechosEs.push({ rede: rm.id, id: t.id, de: t.de, para: t.para, tipo: t.tipo, uhc: t.uhc, dn: t.dn, dec: t.declividade, L: t.comprimento_m,
+                         ok: !alertas.some((a) => a.startsWith(`ERRO trecho ${t.id}:`)) });
+    r.alertas.push(...alertas.map((a) => "Esgoto: " + a));
+  }
   r.materiais = materiaisDe(r);
   editor.resultado = r;
   editor.problemas = new Set([...r.erros, ...r.avisos].flatMap((p) => p.elementos));
   paineis.resultados();
   vista.redesenhar();
-  const pend = r.erros.length + r.trechos.filter((t) => !t.ok).length + r.pontos.filter((p) => !p.ok).length;
+  const pend = r.erros.length + r.trechos.filter((t) => !t.ok).length + r.pontos.filter((p) => !p.ok).length + r.trechosEs.filter((t) => !t.ok).length;
   mensagem(pend ? `Cálculo concluído com ${pend} pendência(s) — veja o painel à direita.` : "Cálculo concluído: todos os pontos atendidos.", pend > 0);
-  return { pendencias: pend, trechos: r.trechos, pontos: r.pontos, erros: r.erros, alertas: r.alertas };
+  return { pendencias: pend, trechos: r.trechos, pontos: r.pontos, trechosEsgoto: r.trechosEs, erros: r.erros, alertas: r.alertas };
 } });
 
 function materiaisDe(r: ResultadoCalculo) {
-  return listaDeMateriais(r.redes.map((x) => ({ montada: x.montada,
-    dn: new Map<string, number>(x.resposta.resultado.trechos.map((t: any) => [t.id, t.dn])) })), projeto.elementos, projeto.config.fabricante);
+  return [...listaDeMateriais(r.redes.map((x) => ({ montada: x.montada,
+    dn: new Map<string, number>(x.resposta.resultado.trechos.map((t: any) => [t.id, t.dn])) })), projeto.elementos, projeto.config.fabricante),
+    ...listaEsgoto(r.esgoto.map((x) => ({ montada: x.montada,
+      dn: new Map<string, number>(x.resposta.resultado.trechos.map((t: any) => [t.id, t.dn])) })), projeto.elementos, projeto.config.fabricante)];
 }
 const nomePav = (id: string) => projeto.pavimentos.find((p) => p.id === id)?.nome ?? id;
 
 C.registrar({ nome: "materiais", descricao: "Mostra a lista de materiais (calcula antes, se preciso)", async executar(a?: any) {
-  if (!editor.resultado?.redes.length) await C.executar("calcular");
+  if (!editor.resultado) await C.executar("calcular");
   const r = editor.resultado;
-  if (!r?.redes.length) return [];
+  if (!r?.redes.length && !r?.esgoto.length) return [];
   if (a?.semJanela) return r.materiais;
   const dlg = $("dlgMateriais") as HTMLDialogElement;
   const f = (v: number, u: string) => u === "m" ? v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(v);
@@ -453,6 +484,11 @@ function modelo3D() {
     const r = calc?.redes.find((x) => x.montada.id === rm.id);
     return { montada: r?.montada ?? rm, dn: r ? new Map<string, number>(r.resposta.resultado.trechos.map((t: any) => [t.id, t.dn])) : null };
   });
+  const me = montarRedesEsgoto(projeto.elementos, projeto.pavimentos, projeto.config.escalaMetro);
+  for (const rm of me.redes) {
+    const r = calc?.esgoto.find((x) => x.montada.id === rm.id);
+    redes.push({ montada: (r?.montada ?? rm) as any, dn: r ? new Map<string, number>(r.resposta.resultado.trechos.map((t: any) => [t.id, t.dn])) : null, esgoto: true } as any);
+  }
   return construir3D({ elementos: projeto.elementos, pavimentos: projeto.pavimentos, escala: projeto.config.escalaMetro, redes, desenhos });
 }
 
@@ -499,8 +535,14 @@ C.registrar({ nome: "exportarIfc", descricao: "Exporta a água fria em IFC4 (pav
       trechos: r ? new Map<string, { q: number; v: number }>(r.resposta.resultado.trechos.map((t: any) => [t.id, { q: t.vazao_ls, v: t.velocidade_ms }])) : undefined };
   });
   if (!calc) mensagem("Atenção: sem cálculo, o IFC sai com diâmetro provisório de 25 mm. Calcule (F5) antes.", true);
+  const esgoto = montarRedesEsgoto(projeto.elementos, projeto.pavimentos, projeto.config.escalaMetro).redes.map((rm) => {
+    const r = calc?.esgoto.find((x) => x.montada.id === rm.id);
+    return { montada: (r?.montada ?? rm) as any,
+      dn: r ? new Map<string, number>(r.resposta.resultado.trechos.map((t: any) => [t.id, t.dn])) : null,
+      dec: r ? new Map<string, number | null>(r.resposta.resultado.trechos.map((t: any) => [t.id, t.declividade])) : undefined };
+  });
   const txt = gerarIfc({ nome: projeto.nome || "Projeto", elementos: projeto.elementos, pavimentos: projeto.pavimentos,
-                         escala: projeto.config.escalaMetro, redes, versao: VERSAO });
+                         escala: projeto.config.escalaMetro, redes, esgoto, versao: VERSAO });
   const nome = (projeto.nome || "projeto").replace(/[\\/:*?"<>|]/g, "_") + "_agua_fria.ifc";
   const c = await salvarTexto(txt, nome, null, "ifc", "Modelo IFC");
   if (c) mensagem(`IFC salvo: ${c}`);
@@ -526,6 +568,14 @@ document.querySelectorAll<HTMLButtonElement>("[data-ferramenta]").forEach((b) =>
   b.addEventListener("click", async () => { if (vista3d.ativo) await rodar("vista3d", { ligar: false }); rodar("ferramenta", { nome: b.dataset.ferramenta }); }));
 $("snapPlanta").addEventListener("click", () => { editor.alternarSnapPlanta(); $("snapPlanta").classList.toggle("ligado", editor.snapPlanta); });
 $("btn3d").addEventListener("click", () => rodar("vista3d"));
+document.querySelectorAll<HTMLButtonElement>("[data-aba]").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll<HTMLButtonElement>("[data-aba]").forEach((x) => x.classList.toggle("ativa", x === b));
+  document.querySelectorAll<HTMLElement>("[data-grupo]").forEach((g) => (g.hidden = g.dataset.grupo !== b.dataset.aba));
+  // o botão Selecionar fica nas duas abas
+  const sel = document.querySelector<HTMLButtonElement>('[data-ferramenta="selecionar"]')!;
+  document.querySelector<HTMLElement>(`[data-grupo="${b.dataset.aba}"]`)!.prepend(sel);
+  if (editor.ferramenta !== "selecionar") editor.definirFerramenta("selecionar");
+}));
 $("orto").addEventListener("click", () => { editor.alternarOrto(); $("orto").classList.toggle("ligado", editor.orto); });
 
 window.addEventListener("keydown", (e) => {

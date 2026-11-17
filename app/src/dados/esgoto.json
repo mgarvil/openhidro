@@ -1,0 +1,159 @@
+{
+ "aparelhos": [
+  {
+   "chave": "bacia",
+   "descricao": "Bacia sanitária",
+   "uhc": 6,
+   "dn_min": 100,
+   "sifonado": true
+  },
+  {
+   "chave": "banheira",
+   "descricao": "Banheira de residência",
+   "uhc": 2,
+   "dn_min": 40,
+   "sifonado": false
+  },
+  {
+   "chave": "bebedouro",
+   "descricao": "Bebedouro",
+   "uhc": 0.5,
+   "dn_min": 40,
+   "sifonado": false
+  },
+  {
+   "chave": "bide",
+   "descricao": "Bidê",
+   "uhc": 1,
+   "dn_min": 40,
+   "sifonado": false
+  },
+  {
+   "chave": "chuveiro",
+   "descricao": "Chuveiro de residência",
+   "uhc": 2,
+   "dn_min": 40,
+   "sifonado": false
+  },
+  {
+   "chave": "chuveiro_coletivo",
+   "descricao": "Chuveiro coletivo",
+   "uhc": 4,
+   "dn_min": 40,
+   "sifonado": false
+  },
+  {
+   "chave": "lavador_comadre",
+   "descricao": "Lavador de comadre",
+   "uhc": 6,
+   "dn_min": 100,
+   "sifonado": true
+  },
+  {
+   "chave": "lavatorio",
+   "descricao": "Lavatório de residência",
+   "uhc": 1,
+   "dn_min": 40,
+   "sifonado": false
+  },
+  {
+   "chave": "lavatorio_coletivo",
+   "descricao": "Lavatório de uso geral",
+   "uhc": 2,
+   "dn_min": 40,
+   "sifonado": false
+  },
+  {
+   "chave": "maquina_louca",
+   "descricao": "Máquina de lavar louças",
+   "uhc": 2,
+   "dn_min": 50,
+   "sifonado": true
+  },
+  {
+   "chave": "maquina_roupa",
+   "descricao": "Máquina de lavar roupas",
+   "uhc": 3,
+   "dn_min": 50,
+   "sifonado": true
+  },
+  {
+   "chave": "mictorio_valvula",
+   "descricao": "Mictório com válvula de descarga",
+   "uhc": 6,
+   "dn_min": 75,
+   "sifonado": true
+  },
+  {
+   "chave": "mictorio_caixa",
+   "descricao": "Mictório com caixa de descarga",
+   "uhc": 5,
+   "dn_min": 50,
+   "sifonado": true
+  },
+  {
+   "chave": "mictorio_automatico",
+   "descricao": "Mictório com descarga automática",
+   "uhc": 2,
+   "dn_min": 40,
+   "sifonado": true
+  },
+  {
+   "chave": "mictorio_calha",
+   "descricao": "Mictório de calha (por metro)",
+   "uhc": 2,
+   "dn_min": 50,
+   "sifonado": true
+  },
+  {
+   "chave": "pia",
+   "descricao": "Pia de cozinha residencial",
+   "uhc": 3,
+   "dn_min": 50,
+   "sifonado": true
+  },
+  {
+   "chave": "pia_industrial",
+   "descricao": "Pia de cozinha industrial — preparação",
+   "uhc": 3,
+   "dn_min": 50,
+   "sifonado": true
+  },
+  {
+   "chave": "pia_industrial_panelas",
+   "descricao": "Pia de cozinha industrial — lavagem de panelas",
+   "uhc": 4,
+   "dn_min": 50,
+   "sifonado": true
+  },
+  {
+   "chave": "tanque",
+   "descricao": "Tanque de lavar roupas",
+   "uhc": 3,
+   "dn_min": 40,
+   "sifonado": true
+  }
+ ],
+ "dns": [
+  40,
+  50,
+  75,
+  100,
+  150,
+  200,
+  250,
+  300,
+  400
+ ],
+ "declividade_minima": {
+  "40": 0.02,
+  "50": 0.02,
+  "75": 0.02,
+  "100": 0.01,
+  "150": 0.01,
+  "200": 0.01,
+  "250": 0.01,
+  "300": 0.01,
+  "400": 0.01
+ }
+}

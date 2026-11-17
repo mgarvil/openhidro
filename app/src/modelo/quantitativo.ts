@@ -174,3 +174,67 @@ export function csvMateriais(linhas: LinhaMaterial[], nomePav: (id: string) => s
   return [cab, ...linhas.map((l) => [nomePav(l.pavimentoId), l.grupo, l.descricao, l.codigo ?? "", l.unidade, f(l.qtd),
     l.unidade === "m" ? barras(l.qtd) : ""].join(";"))].join("\r\n") + "\r\n";
 }
+
+/** Lista de materiais do esgoto: tubos por DN, joelhos, junções, reduções, caixas, ralos e
+ *  terminais de ventilação dos tubos de queda. */
+export function listaEsgoto(redes: { montada: { grafo: { nos: any[]; arestas: any[] } }; dn: Map<string, number> }[],
+                            elementos: Elemento[], fabricante: string): LinhaMaterial[] {
+  const porEl = new Map(elementos.map((e) => [e.id, e]));
+  const acc = new Map<string, LinhaMaterial>();
+  const achar = (familia: string, dn: number | null, dn2: number | null = null) =>
+    ITENS.find((i) => i.fabricante === fabricante && i.familia === familia && (dn == null || i.dn === dn) && (dn2 == null || i.dn2 === dn2));
+  const somar = (pav: string, familia: string, qtd: number, dn: number | null, dn2: number | null = null) => {
+    const it = achar(familia, dn, dn2);
+    const descricao = it?.descricao ?? `${familia.replace(/_/g, " ")} ${[dn, dn2].filter(Boolean).join(" x ")} mm`;
+    const k = `${pav}|${descricao}`;
+    const l = acc.get(k);
+    if (l) { l.qtd += qtd; return; }
+    acc.set(k, { pavimentoId: pav, grupo: it?.familia.startsWith("caixa") || it?.familia.startsWith("ralo") ? "Caixas e ralos" : it?.grupo ?? "PVC esgoto",
+                 descricao, unidade: it?.unidade ?? "pç", qtd, codigo: it?.codigo ?? null, familia, dn, dn2, rosca: null, foraCatalogo: !it });
+  };
+  for (const { montada, dn } of redes) {
+    const g = montada.grafo;
+    const inc = new Map<number, { o: number; dn: number }[]>();
+    for (const a of g.arestas) {
+      const d = dn.get(a.trecho) ?? 100;
+      const na = g.nos[a.a], nb = g.nos[a.b];
+      const L = a.vertical ? Math.abs(na.z - nb.z) : Math.hypot(na.x - nb.x, na.y - nb.y);
+      somar(na.z <= nb.z ? na.pav : nb.pav, "tubo_esgoto", L, d);
+      (inc.get(a.a) ?? inc.set(a.a, []).get(a.a)!).push({ o: a.b, dn: d });
+      (inc.get(a.b) ?? inc.set(a.b, []).get(a.b)!).push({ o: a.a, dn: d });
+    }
+    for (const n of g.nos) {
+      const es = inc.get(n.i) ?? [];
+      if (!es.length) continue;
+      const el = n.res ? porEl.get(n.res) : n.ap ? porEl.get(n.ap) : null;
+      const dir = (o: number) => { const p = g.nos[o]; const v = [p.x - n.x, p.y - n.y, p.z - n.z]; const m = Math.hypot(v[0], v[1], v[2]) || 1; return v.map((c) => c / m); };
+      const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+      const dns = es.map((e) => e.dn), max = Math.max(...dns), min = Math.min(...dns);
+      if (el?.tipo === "caixa_esgoto") {
+        if (el.modelo === "sifonada") somar(n.pav, "caixa_sifonada", 1, max >= 75 ? 150 : 100, max >= 75 ? 150 : 100);
+        else if (el.modelo === "ralo") somar(n.pav, "ralo_seco", 1, 100, 40);
+        else somar(n.pav, el.modelo === "gordura" ? "caixa_gordura" : "caixa_inspecao", 1, null);
+        continue;
+      }
+      if (el?.tipo === "saida_esgoto") continue;
+      if (es.length === 2) {
+        const c = dot(dir(es[0].o), dir(es[1].o));
+        if (c > -0.98) somar(n.pav, Math.acos(Math.max(-1, Math.min(1, -c))) * 180 / Math.PI < 60 ? "joelho_45_esgoto" : "joelho_90_esgoto", 1, max);
+        if (max !== min) somar(n.pav, "reducao_excentrica_esgoto", 1, max, min);
+        continue;
+      }
+      if (es.length >= 3) {
+        const ord = dns.slice().sort((a, b) => b - a);
+        const [mx, mn] = [ord[0], ord[ord.length - 1]];
+        if (achar("juncao_simples_esgoto", mx, mn)) somar(n.pav, "juncao_simples_esgoto", es.length - 2, mx, mn);
+        else { somar(n.pav, "juncao_simples_esgoto", es.length - 2, mx, mx); if (mx !== mn) somar(n.pav, "reducao_excentrica_esgoto", 1, mx, mn); }
+        continue;
+      }
+      // ponta: topo de tubo de queda recebe terminal de ventilação
+      if (es.length === 1 && !el && g.arestas.some((a) => (a.a === n.i || a.b === n.i) && a.vertical && a.el && porEl.get(a.el)?.tipo === "tubo_queda"))
+        somar(n.pav, "terminal_ventilacao", 1, Math.min(max, 100));
+    }
+  }
+  return [...acc.values()].map((l) => (l.unidade === "m" ? { ...l, grupo: "Tubos de esgoto", qtd: Math.round(l.qtd * 100) / 100 } : l))
+    .sort((a, b) => a.grupo.localeCompare(b.grupo) || (a.dn ?? 0) - (b.dn ?? 0));
+}
