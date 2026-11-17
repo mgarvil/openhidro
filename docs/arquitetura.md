@@ -57,3 +57,25 @@ O motor Python lê a parte de rede diretamente (mesmo formato de `docs/formato-r
 ## Etapas
 
 Ver [roadmap.md](roadmap.md).
+
+## Uso no Brasil e nos EUA
+
+O programa é pensado desde o início para mais de um mercado. Brasil é o padrão; EUA é o segundo
+alvo.
+
+| Camada | Brasil (padrão) | EUA |
+|---|---|---|
+| **Pacote de normas** | NBR 5626 (soma dos pesos), NBR 8160 (UHC), NBR 10844 | IPC / UPC (Water Supply Fixture Units — curva de Hunter; Drainage Fixture Units), ASPE |
+| **Unidades** | SI: m, mm, L/s, kPa | US customary: ft-in, in, gpm, psi (conversão só na tela e nos relatórios; o modelo interno é SI) |
+| **Catálogo de tubos e peças** | Fabricantes brasileiros (PVC soldável NBR 5648, esgoto NBR 5688…) | ASTM/ANSI: PVC Sch 40/80, CPVC, PEX, cobre tipo K/L/M, DWV, cast iron |
+| **Idioma da interface** | pt-BR | en-US |
+| **Simbologia e pranchas** | ABNT | ANSI/ASPE |
+
+Regras de implementação:
+* Cada pacote de normas é um módulo independente (`normas/br/…`, `normas/us/…`) com a mesma
+  interface (aparelhos, vazão de projeto, tabelas de dimensionamento, limites); o projeto `.ohp`
+  guarda qual pacote usa.
+* Catálogos de peças são arquivos de dados (JSON/CSV) por região e fabricante — não código.
+* Todo texto da interface passa por arquivos de tradução; nenhuma string fixa em português no
+  código novo da interface.
+* O modelo interno é sempre SI; unidades imperiais são formatação.
