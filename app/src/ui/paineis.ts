@@ -3,7 +3,7 @@ import type { Editor } from "../editor";
 import { APARELHOS, APARELHOS_ES, MODELOS_CAIXA, MODELOS_REGISTRO, NOMES_TIPO, SIGLAS, SIGLAS_ES, TUBOS_PVC, aparelho, type Elemento } from "../modelo/elementos";
 
 const DNS_ES = [40, 50, 75, 100, 150];
-import type { Projeto } from "../projeto";
+import { alturaPadrao, type Projeto } from "../projeto";
 
 type Executar = (nome: string, args?: unknown) => Promise<unknown>;
 
@@ -26,12 +26,13 @@ export class Paineis {
     switch (ed.ferramenta) {
       case "aparelho": {
         const ap = aparelho(o.aparelho);
+        const hp = alturaPadrao(this.projeto().config, o.aparelho, ap?.altura_m);
         el.innerHTML = `<h2>Ponto de utilização</h2>
           <ul class="biblioteca">${APARELHOS.map((a) => `<li data-chave="${a.chave}" class="${a.chave === o.aparelho ? "ativo" : ""}" title="Peso ${f(a.peso, 1)} · ${f(a.vazao_ls)} L/s">
             <span class="sigla">${SIGLAS[a.chave] ?? ""}</span>${esc(a.descricao)}</li>`).join("")}</ul>
           <div class="form">
-            <label>Altura do ponto (m)</label><input name="alturaAparelho" value="${vf(o.alturaAparelho ?? ap?.altura_m)}" />
-            <span class="info">Altura acima do piso. Padrão do aparelho: ${vf(ap?.altura_m)} m.</span>
+            <label>Altura do ponto (m)</label><input name="alturaAparelho" value="${vf(o.alturaAparelho ?? hp)}" />
+            <span class="info">Altura acima do piso. Padrão do projeto: ${vf(hp)} m (tabela de alturas do escritório).</span>
           </div>`;
         el.querySelectorAll<HTMLElement>(".biblioteca li").forEach((li) => li.addEventListener("click", () => {
           o.aparelho = li.dataset.chave!; o.alturaAparelho = null; this.ferramenta();

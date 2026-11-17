@@ -7,7 +7,7 @@ import { aparelho, aparelhoEs, ehSegmento, MODELOS_CAIXA, MODELOS_REGISTRO, SIGL
 import type { RedeEsgotoMontada } from "./modelo/redeEsgoto";
 import type { LinhaMaterial } from "./modelo/quantitativo";
 import type { RedeMontada } from "./modelo/rede";
-import { novoId, type Pavimento, type Projeto } from "./projeto";
+import { alturaPadrao, novoId, type Pavimento, type Projeto } from "./projeto";
 import type { Vista2D } from "./vista/vista2d";
 
 export type NomeFerramenta = "selecionar" | "tubo" | "aparelho" | "reservatorio" | "coluna" | "registro"
@@ -129,7 +129,7 @@ export class Editor {
     if (el.tipo === "aparelho") {
       const ap = aparelho(el.chave);
       if (!ap) throw new Error(`Aparelho desconhecido: ${el.chave}`);
-      el.altura ??= ap.altura_m;
+      el.altura ??= alturaPadrao(this.p.config, el.chave, ap.altura_m);
       el.quantidade ??= 1;
     }
     if (el.tipo === "tubo") el.altura ??= this.opcoes.alturaTubo;
@@ -295,7 +295,7 @@ export class Editor {
         this.cadeia = alvo ? null : [s.x, s.y];
       } else if (this.ferramenta === "aparelho") {
         this.inserir({ tipo: "aparelho", chave: this.opcoes.aparelho, x: s.x, y: s.y,
-                       altura: this.opcoes.alturaAparelho ?? aparelho(this.opcoes.aparelho)?.altura_m ?? 0.6, quantidade: 1 } as Partial<ElAparelho> & { tipo: "aparelho" });
+                       altura: this.opcoes.alturaAparelho ?? alturaPadrao(this.p.config, this.opcoes.aparelho, aparelho(this.opcoes.aparelho)?.altura_m), quantidade: 1 } as Partial<ElAparelho> & { tipo: "aparelho" });
       } else if (this.ferramenta === "reservatorio") {
         this.inserir({ tipo: "reservatorio", x: s.x, y: s.y, altura: this.opcoes.alturaReservatorio, nivelAgua: this.opcoes.nivelAgua, rotulo: this.proximoRotulo("RES") });
         this.definirFerramenta("selecionar");
@@ -303,7 +303,7 @@ export class Editor {
         if (s.tipo !== "meio" && !(s.tipo === "ponto" && this.tuboEm(s.x, s.y))) throw new Error("Clique sobre um tubo para inserir o registro");
         // na ponta de tubo (descida): registro na parede, na altura escolhida; no meio do tubo: horizontal
         this.inserir({ tipo: "registro", x: s.x, y: s.y, modelo: this.opcoes.modeloRegistro,
-                       altura: s.tipo === "ponto" ? this.opcoes.alturaRegistro : null } as Partial<ElRegistro> & { tipo: "registro" });
+                       altura: s.tipo === "ponto" ? (this.opcoes.modeloRegistro === "pressao" ? this.p.config.alturaRegistroPressao : this.opcoes.alturaRegistro) : null } as Partial<ElRegistro> & { tipo: "registro" });
       } else if (this.ferramenta === "ponto_esgoto") {
         this.inserir({ tipo: "ponto_esgoto", chave: this.opcoes.aparelhoEs, x: s.x, y: s.y, quantidade: 1 } as any);
       } else if (this.ferramenta === "caixa_esgoto") {

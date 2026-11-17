@@ -13,7 +13,7 @@ export const aparelho = (chave: string) => APARELHOS.find((a) => a.chave === cha
 
 /** Siglas usadas nos rótulos do desenho (convenção usual de projeto). */
 export const SIGLAS: Record<string, string> = {
-  bacia_caixa_descarga: "BS", bacia_valvula_descarga: "VD", banheira: "BAN", bebedouro: "BEB", bide: "BD",
+  bacia_caixa_descarga: "VS", bacia_valvula_descarga: "VD", banheira: "BAN", bebedouro: "BEB", bide: "BD",
   chuveiro: "CH", chuveiro_eletrico: "CH", lavadora: "MLR", lavatorio: "LV", mictorio_valvula: "MIC",
   mictorio_caixa: "MIC", mictorio_calha: "MIC", pia: "PIA", pia_torneira_eletrica: "PIA", tanque: "TQ",
   torneira_jardim: "TJ",
@@ -38,7 +38,7 @@ export const APARELHOS_ES: AparelhoEsgoto[] = catalogoEs.aparelhos;
 export const aparelhoEs = (chave: string) => APARELHOS_ES.find((a) => a.chave === chave);
 export const DECLIVIDADE_MIN = catalogoEs.declividade_minima as Record<string, number>;
 export const SIGLAS_ES: Record<string, string> = {
-  bacia: "BS", banheira: "BAN", bebedouro: "BEB", bide: "BD", chuveiro: "CH", chuveiro_coletivo: "CH", lavador_comadre: "LC",
+  bacia: "VS", banheira: "BAN", bebedouro: "BEB", bide: "BD", chuveiro: "CH", chuveiro_coletivo: "CH", lavador_comadre: "LC",
   lavatorio: "LV", lavatorio_coletivo: "LV", maquina_louca: "MLL", maquina_roupa: "MLR", mictorio_valvula: "MIC",
   mictorio_caixa: "MIC", mictorio_automatico: "MIC", mictorio_calha: "MIC", pia: "PIA", pia_industrial: "PIA",
   pia_industrial_panelas: "PIA", tanque: "TQ",

@@ -24,6 +24,8 @@ export interface LinhaMaterial {
 const NOMES_FAMILIA: Record<string, string> = {
   joelho_90: "Joelho 90° soldável", joelho_45: "Joelho 45° soldável", te_90: "Tê 90° soldável",
   bucha_reducao_curta: "Bucha de redução soldável", adaptador_curto: "Adaptador soldável curto c/ bolsa e rosca",
+  registro_pressao_canopla: "Registro de pressão com canopla cromada", registro_gaveta_canopla: "Registro de gaveta com canopla cromada",
+  registro_gaveta_bruto: "Registro de gaveta bruto",
 };
 
 /** Ordem de polegadas para comparar roscas. */
@@ -38,7 +40,7 @@ export function listaDeMateriais(redes: { montada: RedeMontada; dn: Map<string, 
       (dn == null || i.dn === dn) && (dn2 == null || i.dn2 === dn2) && (rosca == null || i.rosca === rosca));
   const somar = (pav: string, familia: string, qtd: number, dn: number | null, dn2: number | null = null, rosca: string | null = null) => {
     const it = achar(familia, dn, dn2, rosca);
-    const descricao = it?.descricao ?? `${NOMES_FAMILIA[familia] ?? familia.replace(/_/g, " ")} ${[dn, dn2].filter(Boolean).join(" x ")}${dn ? " mm" : ""}${rosca ? " x " + rosca : ""}`;
+    const descricao = it?.descricao ?? `${NOMES_FAMILIA[familia] ?? familia.replace(/_/g, " ")} ${[dn, dn2].filter(Boolean).join(" x ")}${dn ? " mm" : ""}${rosca ? (dn ? " x " : " ") + rosca : ""}`;
     const k = `${pav}|${descricao}`;
     const l = acc.get(k);
     if (l) { l.qtd += qtd; return; }

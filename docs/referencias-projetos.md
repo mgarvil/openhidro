@@ -246,26 +246,27 @@ Cada item vira teste ou verificação visual.
 
 | # | Diferença | Prioridade |
 |---|---|---|
-| 1 | Isométrico sem cadeia de cotas verticais (piso → pontos → RG → forro) e sem cotas no piso | Alta |
-| 2 | Isométrico sem desenho do piso com contorno das louças | Alta |
-| 3 | Balão de coluna `AF-n / øDN` e de ventilação `CV-n` fora do padrão (falta a divisória) | Alta |
-| 4 | Rótulo do trecho em planta sem `L=` (comprimento) | Alta |
-| 5 | Retângulo tracejado `HID-n` na planta ligando o ambiente ao isométrico | Alta |
+| 1 | Isométrico sem cadeia de cotas verticais (piso → pontos → RG → forro) e sem cotas no piso | Feito (0.9) |
+| 2 | Isométrico sem desenho do piso com contorno das louças | Feito (0.9) |
+| 3 | Balão de coluna `AF-n / øDN` e de ventilação `CV-n` fora do padrão (falta a divisória) | AF feito (0.9: colunas e descidas); CV pendente |
+| 4 | Rótulo do trecho em planta sem `L=` (comprimento) | Feito (0.9) |
+| 5 | Retângulo tracejado `HID-n` na planta ligando o ambiente ao isométrico | Feito |
 | 6 | Esgoto: faixa amarela, seta verde de sentido, cotas CT/CF nas caixas | Alta |
-| 7 | Tabela "Legenda das indicações" por isométrico (sigla + DN x rosca + conexão de ponta) | Média |
+| 7 | Tabela "Legenda das indicações" por isométrico (sigla + DN x rosca + conexão de ponta) | Feito (0.9) |
 | 8 | Folha de legendas e simbologias, Tabela 1 (passagens) e Tabela 2 (alturas) | Média |
 | 9 | Biblioteca de detalhes padrão (vaso, pia, lavatório, tanque, caixa, ralo, terminal, hidrômetro) | Média |
-| 10 | Alturas padrão dos pontos pela Tabela 2 (hoje são fixas no código) | Alta |
+| 10 | Alturas padrão dos pontos pela Tabela 2 (hoje são fixas no código) | Feito (0.9, `config.alturasPontos`) |
 | 11 | Quadro de revisões no selo, logo do contratante, numeração de folha configurável | Média |
 | 12 | Nomenclatura de arquivo configurável e exportação de uma prancha por arquivo | Média |
 | 13 | Detalhe SAN 1:25 por ambiente (planta ampliada cotada) | Média |
 | 14 | Planta-chave com área destacada | Baixa |
 | 15 | Símbolos de tubulação que sobe, desce ou sobe e desce na planta | Média |
 | 16 | Lista de materiais por local (laje, piso, parede) | Baixa |
-| 17 | Isométrico do reservatório/barrilete com caixa d'água 3D e cotas | Alta |
-| 18 | Lista de materiais em 4 níveis (sistema › família › peça › DN) dentro da prancha | Alta |
+| 17 | Isométrico do reservatório/barrilete com caixa d'água 3D e cotas | Feito (0.9); extravasor e limpeza pendentes |
+| 18 | Lista de materiais em 4 níveis (sistema › família › peça › DN) dentro da prancha | Feito (0.9) |
 | 19 | Selo vertical MGarvil completo (notas, aprovações, revisões, proprietário, conteúdo) | Média |
 | 20 | Plantas SAN ampliadas com nome, nível, área e forro do ambiente vindos da arquitetura (DXF) | Média |
 | 21 | Folhas só de isométricos em obras grandes (paginação automática, 6 a 10 por folha) | Média |
 | 22 | Pluvial (calhas, condutores, descidas), ainda inexistente no motor | Média |
 | 23 | Exportação DXF das pranchas | Média |
+| 24 | Ponto "ducha higiênica" (DH) no catálogo de aparelhos: falta fonte normativa para peso e vazão | Média |

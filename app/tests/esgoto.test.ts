@@ -34,7 +34,7 @@ describe("rede de esgoto", () => {
     expect(t("LV1").comprimento).toBeCloseTo(1.3, 6);
     expect(t("CH1").comprimento).toBeCloseTo(1.3, 6);
     expect(t("CS1").para).toBe("J1");
-    expect(t("BS1").comprimento).toBeCloseTo(0.3 + 0.85 + 0.15 * Math.SQRT2, 3);
+    expect(t("VS1").comprimento).toBeCloseTo(0.3 + 0.85 + 0.15 * Math.SQRT2, 3);
     expect(t("CS1").comprimento).toBeCloseTo(1.15, 6);
     expect(t("J1").para).toBe("SAIDA");
     expect(t("J1").declividade).toBe(0.01);

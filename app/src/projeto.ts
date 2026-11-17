@@ -13,6 +13,10 @@ export interface ConfigProjeto {
   fabricante: string;           // catálogo usado na lista de materiais
   selo: DadosSelo;
   folha: "A0" | "A1" | "A2" | "A3";
+  /** Altura padrão de cada ponto (m acima do piso), por aparelho. Editável por projeto. */
+  alturasPontos: Record<string, number>;
+  alturaRegistroGaveta: number;   // m — registro de gaveta na descida
+  alturaRegistroPressao: number;  // m — registro de pressão do chuveiro
 }
 export const seloPadrao = (): DadosSelo => ({
   empresa: "", contato: "", responsavel: "", registro: "", obra: "", endereco: "", proprietario: "",
@@ -22,7 +26,17 @@ export const seloPadrao = (): DadosSelo => ({
          "3. Alturas dos pontos de utilização a partir do piso acabado; conferir com o fabricante dos aparelhos.\n" +
          "4. Qualquer divergência entre este projeto e a obra deve ser comunicada ao projetista.",
 });
-export const configPadrao = (): ConfigProjeto => ({ escalaMetro: 0.001, alturaTubo: 2.6, fabricante: "Tigre", selo: seloPadrao(), folha: "A1" });
+/** Alturas usuais de escritório (Tabela 2 das pranchas de referência da MGarvil, em m). Prática de
+ *  projeto, não valor normativo: conferir com o fabricante dos aparelhos. */
+export const ALTURAS_PONTOS_PADRAO: Record<string, number> = {
+  chuveiro: 2.10, chuveiro_eletrico: 2.10, lavatorio: 0.60, bacia_caixa_descarga: 0.30, bacia_valvula_descarga: 1.00,
+  bide: 0.30, banheira: 0.55, bebedouro: 0.88, lavadora: 0.90, mictorio_valvula: 1.10, mictorio_caixa: 1.10,
+  mictorio_calha: 1.10, pia: 1.10, pia_torneira_eletrica: 1.10, tanque: 1.10, torneira_jardim: 0.60,
+};
+export const configPadrao = (): ConfigProjeto => ({ escalaMetro: 0.001, alturaTubo: 2.6, fabricante: "Tigre", selo: seloPadrao(), folha: "A1",
+  alturasPontos: { ...ALTURAS_PONTOS_PADRAO }, alturaRegistroGaveta: 1.80, alturaRegistroPressao: 1.00 });
+/** Altura padrão do ponto no projeto (config) com recurso ao catálogo. */
+export const alturaPadrao = (c: ConfigProjeto, chave: string, catalogo?: number) => c.alturasPontos?.[chave] ?? catalogo ?? 0.6;
 
 export interface Fundo {
   nome: string;
@@ -83,6 +97,7 @@ export function lerProjeto(texto: string): Projeto {
   p.elementos ??= [];
   p.config = { ...configPadrao(), ...(p.config ?? {}) };
   p.config.selo = { ...seloPadrao(), ...(p.config.selo ?? {}) };
+  p.config.alturasPontos = { ...ALTURAS_PONTOS_PADRAO, ...(p.config.alturasPontos ?? {}) };
   return p as Projeto;
 }
 

@@ -14,7 +14,7 @@ import { Vista2D } from "./vista/vista2d";
 import { Vista3D } from "./vista/vista3d";
 import { construir3D } from "./modelo/pecas3d";
 
-const VERSAO = "0.8.0";
+const VERSAO = "0.9.0";
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const area = $("area");

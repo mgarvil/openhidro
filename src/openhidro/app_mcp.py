@@ -49,8 +49,12 @@ Boas práticas de lançamento (correções do engenheiro — siga sempre):
 - Água fria embutida na PAREDE: passe os tubos no eixo das paredes (use geometriaPlanta para achar as
   duas faces e use o meio), nunca soltos no ambiente. Desça pela parede: um tubo na altura do forro e
   outro na altura do ramal da parede, com as pontas no mesmo x,y, viram descida automaticamente.
-  Ramal na parede: ~1,20 m para mictórios, ~0,90 m para lavatórios, ~0,60 m para bacias com caixa.
-- Registro de gaveta por ambiente, de preferência na descida (inserirRegistro com altura, usual 1,80 m).
+  Ramal na parede: ~1,20 m para mictórios, ~0,90 m para lavatórios, ~0,60 m para bacias com caixa,
+  ou ramal baixo (~0,30 m) subindo a cada ponto, como nos projetos de referência do escritório.
+- Alturas dos pontos: use as do projeto (inserirAparelho sem altura aplica a tabela do escritório:
+  CH 2,10; LV 0,60; VS 0,30; VD 1,00; pia/tanque/mictório 1,10; TJ 0,60; bebedouro 0,88).
+- Registro de gaveta por ambiente, na descida a 1,80 m; registro de pressão do chuveiro a 1,00 m, na
+  subida do chuveiro (inserirRegistro com altura, na ponta do tubo).
 - Não crie "tê de canto" (três saídas sem par alinhado, ex.: coluna descendo com dois tubos a 90° no
   mesmo ponto): essa peça não existe. Faça a coluna atravessar (tê com passagem vertical) e derive
   em alturas diferentes, ou afaste a derivação.

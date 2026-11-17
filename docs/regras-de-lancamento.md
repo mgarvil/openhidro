@@ -12,8 +12,8 @@ verificação automática.
 | Ramal secundário de esgoto entra no primário a 45° | idem | Chegada a 45° automática ao desenhar; pendência se chegar a 90° |
 | Tubos representados em faixa: contorno preto e preenchimento claro | idem | Tela e prancha |
 | Isométrico bifilar com conexões, registros e paredes | idem | Prancha |
-| Alturas dos pontos pela Tabela 2 do escritório (RG 1,80; CH 2,10; RP 1,00; LV 0,60; VS 0,30; VD 1,00; DH 0,45; pia/tanque 1,10) | Projetos de referência MGarvil (`docs/referencias-projetos.md`) | Pendente (backlog #10) |
+| Alturas dos pontos pela Tabela 2 do escritório (RG 1,80; CH 2,10; RP 1,00; LV 0,60; VS 0,30; VD 1,00; DH 0,45; pia/tanque 1,10) | Projetos de referência MGarvil (`docs/referencias-projetos.md`) | Padrão do projeto (`config.alturasPontos`), editável |
 | Coluna desce do forro; ramal corre baixo e sobe aos pontos (ou alto e desce) | idem | Descida automática (0.8) |
-| Trecho rotulado `PVC øDN` + `L=comprimento` | idem | Pendente (backlog #4) |
+| Trecho rotulado `PVC øDN` + `L=comprimento` | idem | Prancha (0.9) |
 | Caixas de esgoto com cota de tampa e de fundo (CT/CF) | idem | Pendente (backlog #6) |
 | Sem notas "confirmar em projeto X" quando X faz parte da mesma entrega | Revisão do contratante (hospital) | Pendente |
