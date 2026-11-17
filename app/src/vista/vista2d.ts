@@ -22,6 +22,15 @@ export class Vista2D {
   private largura = 1;
   private altura = 1;
   private pendente = false;
+  /** false enquanto a vista 3D está na tela: ignora mouse e esconde os canvas. */
+  private _ativo = true;
+  get ativo() { return this._ativo; }
+  set ativo(v: boolean) {
+    this._ativo = v;
+    this.renderer.domElement.style.display = v ? "" : "none";
+    this.overlay.style.display = v ? "" : "none";
+    if (v) this.agendar();
+  }
   onCursor: (x: number, y: number) => void = () => {};
   onMudouVista: () => void = () => {};
   /** Ferramentas de lançamento: coordenadas do desenho e da tela (px). */
@@ -154,6 +163,7 @@ export class Vista2D {
     window.addEventListener("keyup", (e) => { if (e.code === "Space") { espaco = false; el.style.cursor = ""; } });
 
     el.addEventListener("wheel", (e) => {
+      if (!this._ativo) return;
       e.preventDefault();
       const r = el.getBoundingClientRect();
       const px = e.clientX - r.left, py = e.clientY - r.top;
@@ -175,6 +185,7 @@ export class Vista2D {
       return { x, y, px, py };
     };
     el.addEventListener("pointerdown", (e) => {
+      if (!this._ativo) return;
       if (e.button === 0 && !espaco) {
         const l = local(e);
         el.setPointerCapture(e.pointerId);
@@ -192,6 +203,7 @@ export class Vista2D {
       }
     });
     el.addEventListener("pointermove", (e) => {
+      if (!this._ativo) return;
       const r = el.getBoundingClientRect();
       const [x, y] = this.telaParaDesenho(e.clientX - r.left, e.clientY - r.top);
       this.onCursor(x, y);
@@ -203,6 +215,7 @@ export class Vista2D {
       this.agendar();
     });
     const soltar = (e: PointerEvent) => {
+      if (!this._ativo) return;
       if (e.button === 0 && !arrastando) {
         const l = local(e);
         if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
@@ -222,7 +235,7 @@ export class Vista2D {
     // duplo clique no botão do meio = zoom extensão (hábito do AutoCAD)
     let ultimoMeio = 0;
     el.addEventListener("mousedown", (e) => {
-      if (e.button !== 1) return;
+      if (e.button !== 1 || !this._ativo) return;
       const t = performance.now();
       if (t - ultimoMeio < 350) this.zoomExtensao();
       ultimoMeio = t;

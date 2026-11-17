@@ -1,6 +1,6 @@
 [package]
 name = "openhidro"
-version = "0.3.0"
+version = "0.4.0"
 description = "OpenHidro — projeto hidrossanitário"
 authors = ["Marcelo Pacifico Garvil"]
 license = "GPL-3.0-or-later"

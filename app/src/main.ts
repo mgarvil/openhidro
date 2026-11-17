@@ -10,6 +10,8 @@ import { Paineis } from "./ui/paineis";
 import { PainelPavimentos } from "./ui/pavimentos";
 import { IndicePontas } from "./vista/indice";
 import { Vista2D } from "./vista/vista2d";
+import { Vista3D } from "./vista/vista3d";
+import { construir3D } from "./modelo/pecas3d";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -23,6 +25,8 @@ const desenhos = new Map<string, Desenho>();
 let desenho: Desenho | null = null;   // o do pavimento ativo
 let alterado = false;
 const editor = new Editor(vista, area, () => projeto);
+const vista3d = new Vista3D(area);
+vista3d.mostrar(false);
 
 const ativo = (): Pavimento => projeto.pavimentos.find((p) => p.id === projeto.pavimentoAtivo) ?? projeto.pavimentos[0];
 const pav = (id: string) => {
@@ -441,6 +445,48 @@ C.registrar({ nome: "prancha", descricao: "Gera a prancha em PDF {direto?: true 
   if (!dlg.open) dlg.showModal();
 } });
 
+function modelo3D() {
+  const m = montarRedes(projeto.elementos, projeto.pavimentos, projeto.config.escalaMetro);
+  const calc = editor.resultado;
+  const redes = m.redes.map((rm) => {
+    const r = calc?.redes.find((x) => x.montada.id === rm.id);
+    return { montada: r?.montada ?? rm, dn: r ? new Map<string, number>(r.resposta.resultado.trechos.map((t: any) => [t.id, t.dn])) : null };
+  });
+  return construir3D({ elementos: projeto.elementos, pavimentos: projeto.pavimentos, escala: projeto.config.escalaMetro, redes, desenhos });
+}
+
+C.registrar({ nome: "vista3d", descricao: "Alterna entre a planta (2D) e o modelo 3D {ligar?: boolean}", executar(a?: any) {
+  const ligar = a?.ligar ?? !vista3d.ativo;
+  if (ligar) {
+    if (!projeto.elementos.length) { mensagem("Nada lançado ainda para ver em 3D.", true); return false; }
+    editor.definirFerramenta("selecionar");
+    vista3d.definirModelo(modelo3D());
+    vista.ativo = false;
+    vista3d.mostrar(true);
+    vista3d.enquadrar();
+    $("vazio").hidden = true;
+    mensagem(editor.resultado ? "3D com os diâmetros calculados. Girar: botão esquerdo · mover: direito · zoom: roda."
+                              : "3D com diâmetro provisório (25 mm). Calcule (F5) para ver os diâmetros reais.");
+  } else {
+    vista3d.mostrar(false);
+    vista.ativo = true;
+    atualizarVazio();
+  }
+  $("btn3d").classList.toggle("ligado", ligar);
+  document.body.classList.toggle("modo3d", ligar);
+  return ligar;
+} });
+
+C.registrar({ nome: "exportarGlb", descricao: "Exporta o modelo 3D em glTF binário (.glb)", async executar() {
+  const { GLTFExporter } = await import("three/examples/jsm/exporters/GLTFExporter.js");
+  const m = modelo3D();
+  m.grupo.children.filter((o) => o.userData.fundo).forEach((o) => m.grupo.remove(o));
+  const buf = await new GLTFExporter().parseAsync(m.grupo, { binary: true }) as ArrayBuffer;
+  const nome = (projeto.nome || "projeto").replace(/[\\/:*?"<>|]/g, "_") + "_agua_fria.glb";
+  const c = await salvarBinario(new Uint8Array(buf), nome, "glb", "Modelo 3D (glTF)", "model/gltf-binary");
+  if (c) mensagem(`Modelo 3D salvo: ${c}`);
+} });
+
 C.registrar({ nome: "exportarMemorial", descricao: "Salva o memorial de cálculo em Markdown", async executar() {
   if (!editor.resultado?.redes.length) await C.executar("calcular");
   const r = editor.resultado;
@@ -457,8 +503,9 @@ document.querySelectorAll<HTMLButtonElement>("[data-cmd]").forEach((b) =>
 
 const rodar = (n: string, a?: unknown) => C.executar(n, a).catch((e) => mensagem(String(e?.message ?? e), true));
 document.querySelectorAll<HTMLButtonElement>("[data-ferramenta]").forEach((b) =>
-  b.addEventListener("click", () => rodar("ferramenta", { nome: b.dataset.ferramenta })));
+  b.addEventListener("click", async () => { if (vista3d.ativo) await rodar("vista3d", { ligar: false }); rodar("ferramenta", { nome: b.dataset.ferramenta }); }));
 $("snapPlanta").addEventListener("click", () => { editor.alternarSnapPlanta(); $("snapPlanta").classList.toggle("ligado", editor.snapPlanta); });
+$("btn3d").addEventListener("click", () => rodar("vista3d"));
 $("orto").addEventListener("click", () => { editor.alternarOrto(); $("orto").classList.toggle("ligado", editor.orto); });
 
 window.addEventListener("keydown", (e) => {
@@ -476,7 +523,9 @@ window.addEventListener("keydown", (e) => {
   else if (e.ctrlKey && k === "a") { e.preventDefault(); editor.selecionar(editor.visiveis().map((x) => x.id)); }
   else if (e.ctrlKey || e.altKey || e.metaKey) return;
   else if (e.key === "Home") { e.preventDefault(); rodar("zoomExtensao"); }
-  else if (e.key === "Escape") editor.esc();
+  else if (e.key === "Escape") { if (vista3d.ativo) rodar("vista3d", { ligar: false }); else editor.esc(); }
+  else if (vista3d.ativo && k !== "3") return;
+  else if (k === "3") rodar("vista3d");
   else if (e.key === "Delete" || e.key === "Backspace") { if (editor.selecao.size) rodar("excluirElementos", { ids: [...editor.selecao] }); }
   else if (e.key === "F5") { e.preventDefault(); rodar("calcular"); }
   else if (e.key === "F3") { e.preventDefault(); editor.alternarSnapPlanta(); $("snapPlanta").classList.toggle("ligado", editor.snapPlanta); }
@@ -521,6 +570,7 @@ window.addEventListener("beforeunload", (e) => { if (alterado) e.preventDefault(
   }),
   editor,
   vista,
+  vista3d,
 };
 
 reiniciarEditor();

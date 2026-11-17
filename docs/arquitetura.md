@@ -103,3 +103,17 @@ O motor Python vai empacotado no instalador como executável único (PyInstaller
 `openhidro-motor --entrada pedido.json`; a resposta (resultado + memorial) volta em JSON pela saída
 padrão. Assim existe **um único motor de cálculo** — o mesmo da linha de comando e do servidor MCP — e
 as tabelas normativas continuam só em Python (o catálogo que a interface usa é gerado delas).
+
+## 3D e BIM com bibliotecas abertas
+
+| Necessidade | Biblioteca | Licença | Situação |
+|---|---|---|---|
+| Vista 3D e peças paramétricas (tubos, conexões, registros, caixas) | Three.js | MIT | **em uso** (`app/src/modelo/pecas3d.ts`) |
+| Exportar 3D para qualquer visualizador (Blender, 3D Viewer do Windows) | Three.js GLTFExporter (.glb) | MIT | **em uso** |
+| Ler e gravar IFC no navegador | web-ifc (That Open) | MPL-2.0 | previsto (M4) |
+| Gravar IFC no motor Python (IfcPipeSegment, IfcPipeFitting, IfcValve) | IfcOpenShell | LGPL-3.0 | alternativa ao web-ifc |
+| Peças com detalhe de fabricação (sólidos, STEP) | replicad / OpenCascade.js | MIT / LGPL-2.1 | avaliar |
+
+As peças 3D são geradas por parâmetros (DN, ângulo, tipo) — não se usam bibliotecas de peças de
+software comercial. Dimensões finas (bolsa, comprimento de encaixe) podem vir do catálogo público
+dos fabricantes quando forem cadastradas.

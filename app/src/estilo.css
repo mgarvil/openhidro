@@ -121,6 +121,9 @@ button.mini { padding: 1px 7px; font-size: 11px; border-radius: 4px; }
 .lista.pavs li.editando .acoes { display: flex; gap: 6px; justify-content: flex-end; }
 .pav-ativo { color: var(--azul); font-weight: 600; }
 
+button.alternar.ligado { background: #1a2a3c; border-color: var(--azul); color: #fff; }
+.area canvas.v3d { position: absolute; inset: 0; }
+
 /* faixa de ferramentas */
 .ferramentas {
   grid-area: ferr; display: flex; align-items: center; gap: 10px; padding: 0 12px;

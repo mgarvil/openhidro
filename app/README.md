@@ -51,3 +51,8 @@ temporário e lê a resposta JSON (ver `src/openhidro/ponte.py`). Não é precis
 - **Prancha PDF** (A0–A3): uma folha por pavimento com planta (planta de fundo, tubos, Ø, pontos,
   registros, colunas, áreas de detalhe), isométrico de cada ambiente (alturas, Ø, roscas), legenda,
   lista de materiais, notas e selo editável
+
+## 0.4 — 3D
+- **3D** (botão ou tecla 3): modelo com tubos, conexões (bolsas), peças azuis nos pontos, registros e
+  caixa d'água, com a planta de cada pavimento na sua cota. Girar: botão esquerdo; mover: direito; zoom: roda
+- **Exportar 3D**: arquivo `.glb` (glTF) para Blender, 3D Viewer do Windows e outros
