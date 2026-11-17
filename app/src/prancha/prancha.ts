@@ -338,7 +338,7 @@ function desenharPlanta(doc: jsPDF, e: EntradaPrancha, pav: Pavimento, detalhes:
 }
 
 // ============================================================ isométricos
-const VERDE: RGB = [0, 150, 75], VERMELHO: RGB = [215, 30, 30];
+const VERMELHO: RGB = [215, 30, 30];
 const MARROM: RGB = [163, 96, 58], MARROM_CLARO: RGB = [224, 168, 128], MARROM_ESC: RGB = [96, 52, 28];
 
 /** Nome curto do ponto para a legenda das indicações. */
@@ -755,14 +755,21 @@ function tabela(doc: jsPDF, titulo: string, linhas: [string, string][], x: numbe
   return y;
 }
 
+/** Título do detalhe no padrão de desenho técnico: círculo de chamada com o número do detalhe,
+ *  título sublinhado e escala. Marcador próprio do OpenHidro (não reproduz símbolos de terceiros). */
 function tituloDetalhe(doc: jsPDF, titulo: string, escala: string, x: number, y: number) {
-  doc.setFillColor(...VERDE);
-  doc.triangle(x, y + 1.2, x + 3, y - 4.2, x + 5.4, y + 1.2, "F");
-  doc.setFillColor(150, 150, 150); doc.triangle(x + 3.6, y + 1.2, x + 6.4, y - 2.2, x + 7.2, y + 1.2, "F");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(3.0 * PT); doc.setTextColor(...VERDE);
-  doc.text(titulo, x + 9, y - 0.8);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(1.8 * PT); doc.setTextColor(...PRETO);
-  doc.text(escala, x + 9, y + 2.4);
+  const num = /(\d+)\s*$/.exec(titulo)?.[1] ?? "";
+  const r = 3.4, cx = x + r, cy = y - 0.6;
+  doc.setDrawColor(...PRETO); doc.setFillColor(255, 255, 255); doc.setLineWidth(0.35);
+  doc.circle(cx, cy, r, "FD");
+  doc.setFont("helvetica", "bold"); doc.setFontSize(2.6 * PT); doc.setTextColor(...PRETO);
+  doc.text(num, cx, cy + 0.9, { align: "center" });
+  doc.setFontSize(3.0 * PT);
+  doc.text(titulo, x + 2 * r + 2.5, y - 0.8);
+  const w = doc.getTextWidth(titulo);
+  doc.setLineWidth(0.35); doc.line(x + 2 * r + 2.5, y + 0.4, x + 2 * r + 2.5 + w, y + 0.4);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(1.9 * PT);
+  doc.text(`Escala ${escala}`, x + 2 * r + 2.5, y + 3.4);
 }
 
 // ============================================================ esquema vertical
@@ -991,13 +998,12 @@ function cabecalho(doc: jsPDF, t: string, x: number, y: number, w: number) {
 }
 
 function tituloVista(doc: jsPDF, titulo: string, sub: string, x: number, y: number) {
-  doc.setFillColor(...AZUL); doc.triangle(x, y, x + 3.2, y - 4.4, x + 6.4, y, "F");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(3.2 * PT); doc.setTextColor(...AZUL);
-  doc.text(titulo.toUpperCase(), x + 8.5, y - 1);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(3.2 * PT); doc.setTextColor(...PRETO);
+  doc.text(titulo.toUpperCase(), x, y - 1);
   const w = doc.getTextWidth(titulo.toUpperCase());
-  doc.setDrawColor(...AZUL); doc.setLineWidth(0.35); doc.line(x + 8.5, y + 0.3, x + 8.5 + w, y + 0.3);
+  doc.setDrawColor(...PRETO); doc.setLineWidth(0.35); doc.line(x, y + 0.3, x + w, y + 0.3);
   doc.setFont("helvetica", "normal"); doc.setFontSize(2 * PT); doc.setTextColor(...PRETO);
-  doc.text(sub, x + 8.5, y + 3.4);
+  doc.text(sub, x, y + 3.4);
 }
 
 function textoAoLongo(doc: jsPDF, t: string, a: [number, number], b: [number, number], afast: number) {

@@ -22,6 +22,11 @@ de norma. No OpenHidro eles entram como padrão editável, nunca como exigência
 
 Os nomes dos clientes ficam fora do repositório; os arquivos ficam na pasta do escritório.
 
+**Sala limpa também no visual:** dos projetos de referência aproveitamos só convenções de desenho
+técnico (cotas, balões, legendas, organização da folha). Logotipos, marcadores e símbolos próprios de
+software comercial (por exemplo, o marcador verde dos títulos de detalhe do QiBuilder) não são
+reproduzidos: o OpenHidro usa o círculo de chamada numerado do desenho técnico.
+
 ## 1. Planta baixa de água fria
 
 - Escala 1/50 para o pavimento e 1/100 para cobertura ou barrilete.

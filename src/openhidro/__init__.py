@@ -2,4 +2,4 @@
 from .calculo import dimensionar_agua_fria, dimensionar_esgoto  # noqa: F401
 from .modelo import No, Rede, Trecho  # noqa: F401
 
-__version__ = "0.9.1"
+__version__ = "0.9.2"
