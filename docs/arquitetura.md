@@ -117,3 +117,17 @@ as tabelas normativas continuam só em Python (o catálogo que a interface usa �
 As peças 3D são geradas por parâmetros (DN, ângulo, tipo) — não se usam bibliotecas de peças de
 software comercial. Dimensões finas (bolsa, comprimento de encaixe) podem vir do catálogo público
 dos fabricantes quando forem cadastradas.
+
+## Ponte com o Claude (M3)
+
+```
+Claude Desktop ──stdio/MCP──> python -m openhidro.app_mcp ──HTTP 127.0.0.1 + chave──> núcleo Tauri (Rust)
+                                                                   │ evento "mcp-pedido"
+                                                                   ▼
+                                                        interface: C.executar(comando, args)
+```
+
+O núcleo abre um servidor HTTP só em 127.0.0.1 (porta 47821 ou livre) e grava porta e chave
+aleatória em `<dados do app>/mcp.json` (`%APPDATA%\br.com.mgarvil.openhidro` no Windows). Cada
+pedido vira um evento para a interface, que executa o comando registrado — o mesmo usado pelos
+botões — e devolve o resultado. Não há outro caminho de alteração do projeto.

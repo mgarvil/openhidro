@@ -14,7 +14,7 @@ import { Vista2D } from "./vista/vista2d";
 import { Vista3D } from "./vista/vista3d";
 import { construir3D } from "./modelo/pecas3d";
 
-const VERSAO = "0.6.0";
+const VERSAO = "0.7.0";
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const area = $("area");
@@ -337,6 +337,52 @@ C.registrar({ nome: "desfazer", descricao: "Desfaz a última alteração", execu
 C.registrar({ nome: "refazer", descricao: "Refaz a alteração desfeita", executar: () => editor.refazer() });
 C.registrar({ nome: "enquadrar", descricao: "Enquadra a vista {xmin, ymin, xmax, ymax} (coordenadas do desenho)",
   executar: (a: any) => vista.enquadrar(a.xmin, a.ymin, a.xmax, a.ymax, 1.05) });
+C.registrar({ nome: "estado", descricao: "Resumo do projeto: pavimentos, contagem de elementos, ferramenta, unidade, vista e resultado do cálculo",
+  executar() {
+    const cont: Record<string, number> = {};
+    for (const e of projeto.elementos) cont[e.tipo] = (cont[e.tipo] ?? 0) + 1;
+    const r = editor.resultado;
+    return {
+      projeto: projeto.nome, escalaMetro: projeto.config.escalaMetro, unidadeDesenho: desenho?.unidade ?? null,
+      pavimentos: projeto.pavimentos.map((p) => ({ id: p.id, nome: p.nome, cota: p.cota, peDireito: p.peDireito, planta: p.fundo?.nome ?? null })),
+      pavimentoAtivo: ativo().nome, elementos: cont, ferramenta: editor.ferramenta, selecao: [...editor.selecao],
+      vista: vista.janela, modo3d: vista3d.ativo,
+      calculo: r ? { pendencias: r.erros.length + r.trechos.filter((t) => !t.ok).length + r.pontos.filter((p) => !p.ok).length + r.trechosEs.filter((t) => !t.ok).length,
+                     redesAguaFria: r.redes.length, redesEsgoto: r.esgoto.length, erros: r.erros.map((x) => x.mensagem), alertas: r.alertas } : null,
+    };
+  } });
+C.registrar({ nome: "buscarTextos", descricao: "Procura textos na planta de fundo do pavimento ativo {filtro (ex.: 'BWC', 'COZINHA'), limite?} → [{texto, x, y, camada}]",
+  executar(a?: any) {
+    if (!desenho) return [];
+    const f = String(a?.filtro ?? "").toLowerCase(), lim = a?.limite ?? 60, out: any[] = [];
+    for (const c of desenho.camadas.values()) for (const t of c.textos)
+      if (!f || t.texto.toLowerCase().includes(f)) { out.push({ texto: t.texto, x: +t.x.toFixed(4), y: +t.y.toFixed(4), camada: c.nome }); if (out.length >= lim) return out; }
+    return out;
+  } });
+C.registrar({ nome: "camadas", descricao: "Camadas da planta de fundo do pavimento ativo, com nº de linhas e textos",
+  executar: () => desenho ? [...desenho.camadas.values()].map((c) => ({ nome: c.nome, linhas: c.segmentos.length / 4, textos: c.textos.length,
+    visivel: !(ativo().fundo?.camadasOcultas ?? []).includes(c.nome) })) : [] });
+C.registrar({ nome: "geometriaPlanta", descricao: "Linhas da planta de fundo dentro de uma janela {xmin, ymin, xmax, ymax, camadas?, limite?} → [[x1,y1,x2,y2,camada]]",
+  executar(a: any) {
+    if (!desenho) return [];
+    const lim = a?.limite ?? 2000, sel = a?.camadas ? new Set<string>(a.camadas) : null, out: any[] = [];
+    for (const c of desenho.camadas.values()) {
+      if (sel && !sel.has(c.nome)) continue;
+      const s = c.segmentos;
+      for (let i = 0; i < s.length; i += 4) {
+        if (Math.max(s[i], s[i + 2]) < a.xmin || Math.min(s[i], s[i + 2]) > a.xmax || Math.max(s[i + 1], s[i + 3]) < a.ymin || Math.min(s[i + 1], s[i + 3]) > a.ymax) continue;
+        out.push([+s[i].toFixed(4), +s[i + 1].toFixed(4), +s[i + 2].toFixed(4), +s[i + 3].toFixed(4), c.nome]);
+        if (out.length >= lim) return out;
+      }
+    }
+    return out;
+  } });
+C.registrar({ nome: "capturarTela", descricao: "Imagem PNG da vista atual (planta ou 3D), em base64",
+  executar() {
+    const url = vista3d.ativo ? vista3d.renderer.domElement.toDataURL("image/png") : vista.capturar();
+    return { formato: "png", base64: url.split(",")[1], janela: vista.janela };
+  } });
+C.registrar({ nome: "listarComandos", descricao: "Lista os comandos disponíveis", executar: () => C.listar() });
 C.registrar({ nome: "listarElementos", descricao: "Lista os elementos do projeto", executar: () => projeto.elementos });
 
 C.registrar({ nome: "calcular", descricao: "Dimensiona a água fria (NBR 5626) e mostra diâmetros e pressões", async executar() {
@@ -642,6 +688,46 @@ window.addEventListener("beforeunload", (e) => { if (alterado) e.preventDefault(
   vista,
   vista3d,
 };
+
+// --------------------------------------------------------- ponte com o Claude (MCP)
+// O núcleo (Rust) recebe pedidos do servidor MCP em 127.0.0.1 e os entrega aqui como evento.
+if ((window as any).__TAURI_INTERNALS__) {
+  (async () => {
+    const { listen } = await import("@tauri-apps/api/event");
+    const { invoke } = await import("@tauri-apps/api/core");
+    await listen<{ id: number; comando: string; args: unknown }>("mcp-pedido", async (ev) => {
+      const { id, comando, args } = ev.payload;
+      let resposta: unknown;
+      try {
+        const r = await C.executar(comando, args ?? undefined);
+        resposta = { ok: true, resultado: JSON.parse(JSON.stringify(r ?? null)) };
+        mensagem(`Claude: ${comando}`);
+      } catch (e: any) {
+        resposta = { ok: false, erro: String(e?.message ?? e) };
+      }
+      await invoke("mcp_resposta", { id, resposta });
+    });
+  })().catch((e) => console.error("ponte MCP", e));
+}
+
+C.registrar({ nome: "conectarClaude", descricao: "Mostra como ligar o Claude Desktop a este programa", async executar() {
+  let info: any = null;
+  if ((window as any).__TAURI_INTERNALS__) { const { invoke } = await import("@tauri-apps/api/core"); info = await invoke("mcp_info"); }
+  const dlg = $("dlgMateriais") as HTMLDialogElement;
+  const cfg = `"openhidro-app": { "command": "python", "args": ["-m", "openhidro.app_mcp"] }`;
+  dlg.innerHTML = `<div class="dlg-cab"><h2>Claude dentro do OpenHidro</h2><button id="fecharCl">Fechar</button></div>
+    <div class="dlg-corpo" style="line-height:1.6">
+    <p>Com o OpenHidro aberto, o Claude Desktop pode lançar, calcular, gerar prancha e exportar usando os mesmos comandos dos botões.</p>
+    <p><b>1.</b> Atualize o pacote Python (uma vez): <code>pip install -U "openhidro[mcp] @ git+https://github.com/mgarvil/openhidro"</code></p>
+    <p><b>2.</b> No arquivo de configuração do Claude Desktop, dentro de <code>"mcpServers"</code>, acrescente:</p>
+    <pre style="background:#0f1216;padding:8px;border-radius:6px;user-select:all">${esc(cfg)}</pre>
+    <p><b>3.</b> Feche e abra o Claude Desktop. Peça, por exemplo: <i>"no OpenHidro, lance a água fria do banheiro do Térreo e calcule"</i>.</p>
+    <p class="ressalva">Ponte local: ${info?.porta ? `ativa na porta ${info.porta} (somente este computador)` : "disponível no aplicativo instalado"}.
+    O Claude só age enquanto o OpenHidro estiver aberto; tudo pode ser desfeito com Ctrl+Z.</p></div>`;
+  dlg.querySelector("#fecharCl")!.addEventListener("click", () => dlg.close());
+  if (!dlg.open) dlg.showModal();
+  return info;
+} });
 
 reiniciarEditor();
 mostrarPavimentoAtivo();

@@ -42,7 +42,7 @@ export class Vista2D {
   sobreposicao: ((ctx: CanvasRenderingContext2D) => void) | null = null;
 
   constructor(private host: HTMLElement) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setClearColor(0x15191f);
     host.appendChild(this.renderer.domElement);
@@ -121,6 +121,21 @@ export class Vista2D {
 
   /** pixels por unidade do desenho */
   get pxPorUnidade() { return this.escala; }
+  /** Retângulo visível, em coordenadas do desenho. */
+  get janela() {
+    const [x0, y1] = this.telaParaDesenho(0, 0), [x1, y0] = this.telaParaDesenho(this.largura, this.altura);
+    return { xmin: x0, ymin: y0, xmax: x1, ymax: y1 };
+  }
+  /** Imagem PNG (data URL) da vista: planta + elementos. */
+  capturar(): string {
+    this.render();
+    const c = document.createElement("canvas");
+    c.width = this.renderer.domElement.width; c.height = this.renderer.domElement.height;
+    const ctx = c.getContext("2d")!;
+    ctx.drawImage(this.renderer.domElement, 0, 0);
+    ctx.drawImage(this.overlay, 0, 0, c.width, c.height);
+    return c.toDataURL("image/png");
+  }
   get tamanho() { return { largura: this.largura, altura: this.altura }; }
   redesenhar() { this.agendar(); }
 
@@ -249,7 +264,7 @@ export class Vista2D {
     requestAnimationFrame(() => { this.pendente = false; this.render(); });
   }
 
-  private render() {
+  render() {
     const w2 = this.largura / 2 / this.escala, h2 = this.altura / 2 / this.escala;
     this.camera.left = this.cx - w2;
     this.camera.right = this.cx + w2;

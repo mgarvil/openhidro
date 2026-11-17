@@ -15,7 +15,7 @@ instalador para Windows testado em projeto real.
 - [x] **M1 — Esqueleto**: abrir DXF de fundo, zoom/pan, camadas, salvar/abrir projeto `.ohp`, instalador Windows
 - [x] **M2 — Água fria na tela**: biblioteca de aparelhos, desenho de tubulação com snap, botão Calcular, diâmetros no desenho, trechos com problema em destaque
 - [ ] **M2.1 — Edição**: mover/copiar/espelhar elementos, propriedades em lote, registros e conexões editáveis por trecho, cotas, prumada em vista de corte, snap em interseções da planta
-- [ ] **M3 — Claude no programa**: servidor MCP do aplicativo (os mesmos comandos do mouse), receitas de lançamento, aprendizado por correção
+- [~] **M3 — Claude no programa**: ✅ ponte local + servidor MCP `openhidro-app` (estado, comandos, lote, imagem da tela, busca de textos e geometria da planta); falta: receitas de lançamento e aprendizado por correção
 - [~] **M4 — Esgoto, 3D e exportação**: ✅ vista 3D com peças paramétricas, exportação glTF (.glb) e IFC4 (validado com IfcOpenShell); ✅ rede de esgoto na tela (pontos, tubos com declividade, caixas, tubos de queda, saída), cálculo NBR 8160, materiais, prancha, 3D e IFC; falta: ventilação desenhada, portas/conectividade IFC, DXF
 - [~] **M5 — Pranchas e detalhes**: ✅ prancha PDF por pavimento (planta, isométrico por ambiente, legenda, lista, notas, selo) e folha de esquema vertical das colunas; falta: barrilete e reservatórios em 3D, posicionamento manual das vistas, DXF/DWG da prancha
 - [~] **M6 — Peças comerciais**: ✅ catálogo Tigre/Amanco (soldável, esgoto, metais), lista de materiais com conexões reais por DN, CSV; falta: códigos de fabricante, preços/orçamento, editor do catálogo

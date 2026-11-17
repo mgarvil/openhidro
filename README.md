@@ -22,12 +22,15 @@ pode montar, calcular e revisar a rede junto com o engenheiro.
 | Leitura de DXF — linhas em camadas viram trechos, blocos viram aparelhos, derivações em "T" detectadas | ✅ |
 | Saídas — memorial em Markdown, CSV, JSON, DXF anotado | ✅ |
 | Servidor MCP para o Claude | ✅ |
-| Água quente, águas pluviais (NBR 10844), coluna de ventilação, isométricos, IFC | 🔜 ver [roadmap](docs/roadmap.md) |
+| Aplicativo de desktop: lançamento com mouse (água fria e esgoto), pavimentos, cálculo, lista de materiais Tigre/Amanco, prancha PDF com isométricos e esquema vertical, 3D, IFC4 | ✅ |
+| Claude dentro do aplicativo (servidor MCP `openhidro-app`) | ✅ |
+| Água quente, águas pluviais (NBR 10844), coluna de ventilação desenhada | 🔜 ver [roadmap](docs/roadmap.md) |
 
-## Aplicativo de desktop (em construção)
+## Aplicativo de desktop
 
 A interface gráfica fica em [`app/`](app/) — Tauri + TypeScript + Three.js. O instalador para
-Windows é gerado automaticamente pelo GitHub a cada versão (aba **Releases**). Arquitetura e
+Windows é gerado automaticamente pelo GitHub a cada versão (aba **Releases**); o motor de cálculo
+vai dentro dele, sem precisar de Python. Arquitetura e
 etapas: [docs/arquitetura.md](docs/arquitetura.md) e [docs/roadmap.md](docs/roadmap.md).
 
 ## Instalação do motor de cálculo (linha de comando / MCP)
@@ -68,6 +71,13 @@ claude mcp add openhidro -- openhidro-mcp
 
 ```json
 { "mcpServers": { "openhidro": { "command": "openhidro-mcp" } } }
+```
+
+**Claude operando o aplicativo aberto** (lança, calcula, gera prancha e exporta usando os mesmos
+comandos dos botões; tudo pode ser desfeito com Ctrl+Z):
+
+```json
+{ "mcpServers": { "openhidro-app": { "command": "python", "args": ["-m", "openhidro.app_mcp"] } } }
 ```
 
 Depois é só pedir em português: *"dimensione a água fria deste banheiro"*, *"leia o DXF da planta
