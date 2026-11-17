@@ -19,6 +19,12 @@ instalador para Windows testado em projeto real.
 - [ ] **M5 — Pranchas e detalhes**: folhas com selo, isométricos, detalhes de banheiro, PDF
 - [ ] **M6 — Peças comerciais**: catálogo de fabricantes, lista de materiais, orçamento
 
+## Internacionalização (EUA)
+- [ ] Unidades imperiais na interface e nos relatórios
+- [ ] Interface em inglês (en-US)
+- [ ] Pacote de normas US: IPC/UPC — WSFU (curva de Hunter), DFU, drenagem e ventilação
+- [ ] Catálogo ASTM (PVC Sch 40, CPVC, PEX, cobre K/L/M, DWV)
+
 ## Motor — próximos cálculos
 - [ ] Água quente (NBR 5626:2020 / NBR 7198)
 - [ ] Águas pluviais (NBR 10844)
