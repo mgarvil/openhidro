@@ -8,7 +8,7 @@ convenções de desenho e de entrega que o engenheiro adota.
 Os valores marcados como **padrão do escritório** são práticas usuais da MGarvil e não números
 de norma. No OpenHidro eles entram como padrão editável, nunca como exigência normativa.
 
-## Projetos analisados (1ª rodada, 17/11/2026)
+## Projetos analisados (17/11/2026)
 
 | Ref. | Tipo | Folhas | Ferramenta de origem |
 |---|---|---|---|
@@ -152,7 +152,97 @@ Os nomes dos clientes ficam fora do repositório; os arquivos ficam na pasta do 
 - **Planta-chave** (key plan) com a área de intervenção destacada, quando o projeto cobre só parte
   do edifício.
 
-## 7. Comparação com o OpenHidro 0.8 e backlog
+## 7. Observações da 2ª leitura (escola, residência térrea)
+
+- **Isométrico com ramal alto:** o ramal sai da coluna no forro e desce para cada ponto, e `L=`
+  aparece em cada trecho do isométrico, não só na planta. Em banheiro coletivo (escola) o
+  isométrico mostra a bateria inteira de duchas e vasos com cotas de eixo a eixo (60 / 60 / 61,2).
+- **Barrilete:** isométrico próprio do reservatório (`DETALHE HID-n`), com a caixa d'água em 3D, o
+  rótulo `RG-1 1000L`, a saída, o extravasor, a limpeza e o registro na saída. Cotas verticais
+  (15 / 95 / 60) e `L=` em todos os trechos. A alimentação chega em azul claro e a água fria sai
+  em marrom.
+- **Planta sanitária ampliada (SAN-n, 1:25):** traz da arquitetura o nome do ambiente, o nível, a
+  área e o forro (`N + 0,04 / A = 2,09 m² / forro 3,00 m`). Cada ralo, vaso e pia é cotado
+  a partir das paredes. Tubo de queda e ventilação aparecem em balões coloridos (`TQ-n` verde e
+  `CV-n` vermelho, com `ø100`/`ø50`). Notas de obra no desenho: "Descida pluvial, lançar em
+  pátio", "Criar sifonamento".
+- **Organização da folha (residencial):**
+  - uma folha por disciplina e pavimento;
+  - planta do pavimento 1/50 em cima e faixa de isométricos (HID-1…HID-n) no meio;
+  - planta do barrilete com os isométricos do reservatório embaixo;
+  - na coluna da direita, a lista de materiais do pavimento, a legenda de condutos, a legenda de
+    peças e as notas;
+  - selo vertical no canto inferior direito.
+- **Organização da folha (obra pública, A0):**
+  - folha 1 com implantação e plantas;
+  - folhas 2 a 4 só com isométricos, de 6 a 10 por folha;
+  - folhas seguintes com plantas sanitárias ampliadas, pluvial e reservatório;
+  - selo do contratante com "Folha 02/09".
+- **Selo MGarvil (vertical):** Notas (propriedade do projeto, Lei 5194/66, alterações, base no
+  layout do arquiteto) → Aprovações/observações → Revisões (nº, descrição, data, aprovação) →
+  logo → obra e endereço → projetista e CREA → proprietário → conteúdo da prancha → prancha nº,
+  conjunto, data, escala, revisor.
+- **Lista de materiais:** organizada em quatro níveis:
+  - sistema (Alimentação, Água fria, Esgoto, Ventilação);
+  - família (PVC rígido soldável, Metais, Reservatórios);
+  - peça (Joelho 90° soldável);
+  - linha por DN com quantidade (`25 mm … 3 pç`, `50 mm … 33,72 m`).
+
+  Há uma lista por pavimento e outra por local (Laje).
+
+## 8. Meta do programa (checklist de aceitação das pranchas)
+
+O OpenHidro chega ao nível do escritório quando gerar, sem retoque manual, as pranchas abaixo.
+Cada item vira teste ou verificação visual.
+
+**Folha de água fria (por pavimento)**
+- [ ] Planta 1/50 com paredes da arquitetura em cinza e tubos em faixa (contorno + preenchimento)
+- [ ] Balões `AF-n / øDN` nas colunas e `AL-n` na alimentação
+- [ ] Rótulo `PVC øDN` / `L=…` em cada trecho
+- [ ] Siglas dos pontos com `DN mm x rosca`
+- [ ] Retângulo tracejado `HID-n` por ambiente detalhado
+- [ ] Símbolos de tubulação que sobe ou desce e de tê ou joelho que sobe ou desce
+- [ ] Hidrômetro e registros com símbolo da legenda
+- [ ] Planta do barrilete (1/50 ou 1/100) com o reservatório
+
+**Isométricos (na mesma folha ou em folhas próprias)**
+- [ ] Um por ambiente, `DETALHE HID-n` 1:25, com marcador de detalhe
+- [ ] Coluna descendo do forro, com o balão no topo e o RG na descida a 1,80 m
+- [ ] Ramal baixo (sobe aos pontos) ou alto (desce aos pontos), conforme o lançamento
+- [ ] Tubo em 3D sombreado com conexões e registros como peças
+- [ ] `øDN` e `L=` em cada trecho
+- [ ] Cadeia de cotas verticais em vermelho (piso → pontos → RG → forro)
+- [ ] Piso em isométrico com contorno das louças e cotas de posição a partir das paredes
+- [ ] Tabela "Legenda das indicações" (sigla, peça, conexão de ponta, DN x rosca)
+- [ ] Isométrico do reservatório (entrada, saída, extravasor, limpeza, RG, volume)
+
+**Folha de esgoto e pluvial (por pavimento)**
+- [ ] Planta 1/50 com tubo em faixa amarela, `øDN`, `i=%` e seta verde de sentido em cada trecho
+- [ ] Ramais a 45° no subcoletor
+- [ ] Caixas CE/CS/CG/CI em planta com `CT/CF`
+- [ ] Balões `TQ-n` e `CV-n`
+- [ ] Ventilação em ciano ou cinza
+- [ ] Plantas ampliadas `DETALHE SAN-n` 1:25, com nome, nível, área e forro do ambiente e cotas
+  dos pontos
+- [ ] Pluvial: calhas, condutores e descidas, com nota de lançamento
+
+**Conteúdo fixo**
+- [ ] Folha de legendas e simbologias
+- [ ] Tabela 1 (passagens em vigas e lajes) e Tabela 2 (alturas dos pontos)
+- [ ] Notas de água e de esgoto numeradas, com as normas
+- [ ] Tabela de conversões de diâmetro
+- [ ] Biblioteca de detalhes padrão (seção 4)
+- [ ] Lista de materiais por pavimento, organizada por sistema, família, peça e DN
+
+**Selo e entrega**
+- [ ] Selo vertical MGarvil completo, com quadro de revisões e aprovações
+- [ ] Selo de contratante configurável (logo, folha "02/09", campos próprios)
+- [ ] Formatos A0 a A3 e "Folha n/N"
+- [ ] Nomenclatura de arquivo configurável
+- [ ] Um PDF (e um DXF) por prancha
+- [ ] IFC do conjunto
+
+## 9. Comparação com o OpenHidro 0.8 e backlog
 
 | # | Diferença | Prioridade |
 |---|---|---|
@@ -172,3 +262,10 @@ Os nomes dos clientes ficam fora do repositório; os arquivos ficam na pasta do 
 | 14 | Planta-chave com área destacada | Baixa |
 | 15 | Símbolos de tubulação que sobe, desce ou sobe e desce na planta | Média |
 | 16 | Lista de materiais por local (laje, piso, parede) | Baixa |
+| 17 | Isométrico do reservatório/barrilete com caixa d'água 3D e cotas | Alta |
+| 18 | Lista de materiais em 4 níveis (sistema › família › peça › DN) dentro da prancha | Alta |
+| 19 | Selo vertical MGarvil completo (notas, aprovações, revisões, proprietário, conteúdo) | Média |
+| 20 | Plantas SAN ampliadas com nome, nível, área e forro do ambiente vindos da arquitetura (DXF) | Média |
+| 21 | Folhas só de isométricos em obras grandes (paginação automática, 6 a 10 por folha) | Média |
+| 22 | Pluvial (calhas, condutores, descidas), ainda inexistente no motor | Média |
+| 23 | Exportação DXF das pranchas | Média |
