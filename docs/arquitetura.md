@@ -79,3 +79,18 @@ Regras de implementação:
 * Todo texto da interface passa por arquivos de tradução; nenhuma string fixa em português no
   código novo da interface.
 * O modelo interno é sempre SI; unidades imperiais são formatação.
+
+## Pavimentos
+
+Como no QiBuilder e no Revit, o projeto é dividido em **pavimentos** (níveis). Cada pavimento tem
+nome, cota do piso, pé-direito, planta de fundo própria e seu enquadramento de tela.
+
+- Tudo que for lançado (aparelhos, nós, trechos, cotas) leva `pavimentoId`.
+- Colunas, tubos de queda e ventilação ligam pavimentos: são trechos verticais entre a cota de um
+  pavimento e a de outro.
+- A cota absoluta de um ponto = cota do pavimento + altura do ponto em relação ao piso.
+- Comandos (mouse, teclado e, no M3, Claude): `ativarPavimento`, `adicionarPavimento`,
+  `editarPavimento`, `excluirPavimento`.
+- Formato `.ohp` versão 2; arquivos da versão 1 viram um pavimento "Térreo".
+- Futuro: deslocamento de alinhamento por planta (quando os DXF dos pavimentos não estão na mesma
+  origem) e exibir o pavimento de baixo esmaecido como referência.

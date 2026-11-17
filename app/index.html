@@ -27,7 +27,14 @@
     </header>
 
     <aside class="lateral">
-      <section class="painel">
+      <section class="painel pavimentos">
+        <div class="painel-cab">
+          <h2>Pavimentos</h2>
+          <button id="addPavimento" class="mini" title="Novo pavimento acima do último">+ Pavimento</button>
+        </div>
+        <ul id="listaPavimentos" class="lista pavs"></ul>
+      </section>
+      <section class="painel camadas">
         <div class="painel-cab">
           <h2>Camadas</h2>
           <span class="contador" id="contCamadas"></span>
@@ -53,10 +60,11 @@
 
     <footer class="status">
       <span id="coord">x —  y —</span>
+      <span id="pavAtivo" class="pav-ativo"></span>
       <span id="unidade"></span>
       <span id="escalaVista"></span>
       <span id="mensagem" class="mensagem"></span>
-      <span class="versao">OpenHidro 0.1 · M1</span>
+      <span class="versao">OpenHidro 0.1.1 · M1</span>
     </footer>
 
     <script type="module" src="/src/main.ts"></script>

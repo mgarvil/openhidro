@@ -19,6 +19,12 @@ instalador para Windows testado em projeto real.
 - [ ] **M5 — Pranchas e detalhes**: folhas com selo, isométricos, detalhes de banheiro, PDF
 - [ ] **M6 — Peças comerciais**: catálogo de fabricantes, lista de materiais, orçamento
 
+## M1.1 — Pavimentos [x]
+
+- [x] Lista de pavimentos (nome, cota, pé-direito), cada um com sua planta de fundo
+- [x] Troca de pavimento ativo guardando camadas ocultas e enquadramento
+- [x] Projeto `.ohp` v2 com migração da v1
+
 ## Internacionalização (EUA)
 - [ ] Unidades imperiais na interface e nos relatórios
 - [ ] Interface em inglês (en-US)

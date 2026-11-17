@@ -45,7 +45,7 @@ button.destaque:hover { background: var(--azul); }
   display: flex; flex-direction: column; min-height: 0;
 }
 .painel { padding: 10px 10px 6px; display: flex; flex-direction: column; min-height: 0; }
-.painel:first-child { flex: 1; }
+.painel.camadas { flex: 1; border-top: 1px solid var(--borda); }
 .painel-cab { display: flex; align-items: baseline; justify-content: space-between; }
 .painel h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--texto2); margin: 0 0 8px; }
 .contador { color: var(--texto2); font-size: 11px; }
@@ -96,4 +96,28 @@ button.destaque:hover { background: var(--azul); }
 .mensagem { color: var(--texto); }
 .mensagem.erro { color: var(--vermelho); }
 .versao { margin-left: auto; color: #4b5460; }
+
+/* pavimentos */
+button.mini { padding: 1px 7px; font-size: 11px; border-radius: 4px; }
+.pavimentos { flex: none; max-height: 40%; }
+.pavimentos .painel-cab { align-items: center; margin-bottom: 6px; }
+.pavimentos .painel-cab h2 { margin: 0; }
+.lista.pavs { overflow-y: auto; }
+.lista.pavs li { gap: 6px; padding: 4px 6px; }
+.lista.pavs .marcador { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--texto2); flex: none; }
+.lista.pavs li.ativo { background: #1a2a3c; }
+.lista.pavs li.ativo .marcador { background: var(--azul); border-color: var(--azul); }
+.lista.pavs li.ativo .nome { color: #fff; font-weight: 600; }
+.lista.pavs .cota { color: var(--texto2); font-size: 11px; font-variant-numeric: tabular-nums; }
+.lista.pavs .fundo-ico { color: var(--texto2); font-size: 12px; width: 12px; text-align: center; }
+.lista.pavs li .mini { visibility: hidden; padding: 0 5px; background: transparent; border-color: transparent; color: var(--texto2); }
+.lista.pavs li:hover .mini { visibility: visible; }
+.lista.pavs li .mini:hover { color: var(--texto); border-color: var(--borda); }
+.lista.pavs li.editando { flex-direction: column; align-items: stretch; gap: 4px; background: var(--painel2); cursor: default; }
+.lista.pavs li.editando input { font: inherit; color: var(--texto); background: var(--fundo); border: 1px solid var(--borda); border-radius: 4px; padding: 3px 6px; }
+.lista.pavs li.editando label { display: flex; align-items: center; gap: 6px; color: var(--texto2); font-size: 12px; }
+.lista.pavs li.editando label input { width: 70px; margin-left: auto; text-align: right; }
+.lista.pavs li.editando .acoes { display: flex; gap: 6px; justify-content: flex-end; }
+.pav-ativo { color: var(--azul); font-weight: 600; }
+
 [hidden] { display: none !important; }
