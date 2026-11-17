@@ -7,9 +7,12 @@ A fonte é sempre o motor (src/openhidro/normas). Rode depois de alterar as tabe
 import json
 from pathlib import Path
 
-from openhidro.ponte import catalogo_agua_fria
+from openhidro.ponte import catalogo_agua_fria, catalogo_pecas
 
 destino = Path(__file__).resolve().parents[1] / "app/src/dados/agua_fria.json"
 destino.parent.mkdir(parents=True, exist_ok=True)
 destino.write_text(json.dumps(catalogo_agua_fria(), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 print("gravado", destino)
+destino2 = destino.parent / "catalogo.json"
+destino2.write_text(json.dumps(catalogo_pecas(), ensure_ascii=False, indent=0) + "\n", encoding="utf-8")
+print("gravado", destino2)

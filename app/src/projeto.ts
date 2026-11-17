@@ -2,11 +2,27 @@
 import type { EstadoVista } from "./vista/vista2d";
 import type { Elemento } from "./modelo/elementos";
 
+export interface DadosSelo {
+  empresa: string; contato: string; responsavel: string; registro: string;   // registro profissional (CREA/CAU)
+  obra: string; endereco: string; proprietario: string; disciplina: string;
+  revisao: string; data: string; notas: string;
+}
 export interface ConfigProjeto {
   escalaMetro: number;          // metros por unidade do desenho (mm = 0,001)
   alturaTubo: number;           // m acima do piso — padrão da ferramenta Tubo
+  fabricante: string;           // catálogo usado na lista de materiais
+  selo: DadosSelo;
+  folha: "A0" | "A1" | "A2" | "A3";
 }
-export const configPadrao = (): ConfigProjeto => ({ escalaMetro: 0.001, alturaTubo: 2.6 });
+export const seloPadrao = (): DadosSelo => ({
+  empresa: "", contato: "", responsavel: "", registro: "", obra: "", endereco: "", proprietario: "",
+  disciplina: "Instalações hidrossanitárias — Água fria", revisao: "00 — Emissão inicial",
+  data: new Date().toLocaleDateString("pt-BR"),
+  notas: "1. Cotas em centímetros e diâmetros em milímetros, salvo indicação.\n2. Tubulação de água fria em PVC rígido soldável (NBR 5648).\n" +
+         "3. Alturas dos pontos de utilização a partir do piso acabado; conferir com o fabricante dos aparelhos.\n" +
+         "4. Qualquer divergência entre este projeto e a obra deve ser comunicada ao projetista.",
+});
+export const configPadrao = (): ConfigProjeto => ({ escalaMetro: 0.001, alturaTubo: 2.6, fabricante: "Tigre", selo: seloPadrao(), folha: "A1" });
 
 export interface Fundo {
   nome: string;
@@ -66,6 +82,7 @@ export function lerProjeto(texto: string): Projeto {
   if (!p.pavimentos?.length) throw new Error("Projeto sem pavimentos");
   p.elementos ??= [];
   p.config = { ...configPadrao(), ...(p.config ?? {}) };
+  p.config.selo = { ...seloPadrao(), ...(p.config.selo ?? {}) };
   return p as Projeto;
 }
 

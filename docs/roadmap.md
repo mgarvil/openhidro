@@ -17,8 +17,8 @@ instalador para Windows testado em projeto real.
 - [ ] **M2.1 — Edição**: mover/copiar/espelhar elementos, propriedades em lote, registros e conexões editáveis por trecho, cotas, prumada em vista de corte, snap em interseções da planta
 - [ ] **M3 — Claude no programa**: servidor MCP do aplicativo (os mesmos comandos do mouse), receitas de lançamento, aprendizado por correção
 - [ ] **M4 — Esgoto, 3D e exportação**: rede de esgoto, vista 3D, exportação IFC/DXF, memorial
-- [ ] **M5 — Pranchas e detalhes**: folhas com selo, isométricos, detalhes de banheiro, PDF
-- [ ] **M6 — Peças comerciais**: catálogo de fabricantes, lista de materiais, orçamento
+- [~] **M5 — Pranchas e detalhes**: ✅ prancha PDF por pavimento (planta, isométrico por ambiente, legenda, lista, notas, selo); falta: esquema vertical/corte das colunas, barrilete e reservatórios em 3D, posicionamento manual das vistas, DXF/DWG da prancha
+- [~] **M6 — Peças comerciais**: ✅ catálogo Tigre/Amanco (soldável, esgoto, metais), lista de materiais com conexões reais por DN, CSV; falta: códigos de fabricante, preços/orçamento, editor do catálogo
 
 ## M1.1 — Pavimentos [x]
 

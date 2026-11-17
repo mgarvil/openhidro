@@ -1,7 +1,7 @@
 {
   "name": "openhidro-app",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,6 +16,7 @@
     "@tauri-apps/plugin-fs": "^2",
     "@tauri-apps/plugin-shell": "^2.6.0",
     "dxf-parser": "^1.1.2",
+    "jspdf": "^2.5.2",
     "three": "^0.170.0"
   },
   "devDependencies": {

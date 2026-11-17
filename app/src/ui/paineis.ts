@@ -1,6 +1,6 @@
 // Painel direito: opções da ferramenta (biblioteca de pontos), propriedades da seleção e resultados.
 import type { Editor } from "../editor";
-import { APARELHOS, NOMES_TIPO, SIGLAS, TUBOS_PVC, aparelho, type Elemento } from "../modelo/elementos";
+import { APARELHOS, MODELOS_REGISTRO, NOMES_TIPO, SIGLAS, TUBOS_PVC, aparelho, type Elemento } from "../modelo/elementos";
 import type { Projeto } from "../projeto";
 
 type Executar = (nome: string, args?: unknown) => Promise<unknown>;
@@ -48,6 +48,12 @@ export class Paineis {
           <label>Lâmina d'água (m)</label><input name="nivelAgua" value="${vf(o.nivelAgua)}" />
           <span class="info">A lâmina é a altura de água acima da saída considerada no cálculo. Use 0 para o caso mais desfavorável (reservatório quase vazio).</span></div>`;
         break;
+      case "registro":
+        el.innerHTML = `<h2>Registro</h2><div class="form">
+          <label>Tipo</label><select name="modeloRegistro">${Object.entries(MODELOS_REGISTRO).map(([k, m]) =>
+            `<option value="${k}" ${o.modeloRegistro === k ? "selected" : ""}>${m.nome}</option>`).join("")}</select>
+          <span class="info">Clique sobre o tubo. O registro entra na perda de carga do trecho e na lista de materiais (com os adaptadores).</span></div>`;
+        break;
       case "coluna": {
         const a = ed.pavAtivo;
         el.innerHTML = `<h2>Coluna</h2><div class="form">
@@ -63,7 +69,7 @@ export class Paineis {
     el.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input[name], select[name]").forEach((inp) =>
       inp.addEventListener("change", () => {
         const k = inp.name as keyof typeof o;
-        if (k === "colunaTopo" || k === "aparelho") (o as any)[k] = inp.value;
+        if (k === "colunaTopo" || k === "aparelho" || k === "modeloRegistro") (o as any)[k] = inp.value;
         else { const v = num(inp.value); if (isFinite(v)) (o as any)[k] = v; else inp.value = vf((o as any)[k]); }
         if (k === "alturaTubo") this.projeto().config.alturaTubo = o.alturaTubo;
       }));
@@ -98,6 +104,9 @@ export class Paineis {
       } else if (t === "reservatorio") {
         campos = `<label>Saída acima do piso (m)</label><input name="altura" value="${vf(comum("altura"))}" />
           <label>Lâmina d'água (m)</label><input name="nivelAgua" value="${vf(comum("nivelAgua"))}" />`;
+      } else if (t === "registro") {
+        campos = `<label>Tipo</label><select name="modelo">${Object.entries(MODELOS_REGISTRO).map(([k, m]) =>
+          `<option value="${k}" ${comum("modelo") === k ? "selected" : ""}>${m.nome}</option>`).join("")}</select>`;
       } else if (t === "coluna") {
         const pavs = this.projeto().pavimentos;
         campos = `<label>Até o pavimento</label><select name="topoId">${pavs.map((p) =>

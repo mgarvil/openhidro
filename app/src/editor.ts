@@ -2,14 +2,15 @@
 // orto, desfazer/refazer e o desenho dos elementos e resultados por cima da planta.
 // Toda alteração passa pelos comandos registrados em main.ts, então mouse, teclado e (no M3) o Claude
 // produzem exatamente o mesmo efeito.
-import { aparelho, SIGLAS, type ElAparelho, type ElColuna, type Elemento, type ElTubo } from "./modelo/elementos";
+import { aparelho, MODELOS_REGISTRO, SIGLAS, type ElAparelho, type ElColuna, type Elemento, type ElRegistro, type ElTubo } from "./modelo/elementos";
+import type { LinhaMaterial } from "./modelo/quantitativo";
 import type { RedeMontada } from "./modelo/rede";
 import { novoId, type Pavimento, type Projeto } from "./projeto";
 import type { Vista2D } from "./vista/vista2d";
 
-export type NomeFerramenta = "selecionar" | "tubo" | "aparelho" | "reservatorio" | "coluna";
+export type NomeFerramenta = "selecionar" | "tubo" | "aparelho" | "reservatorio" | "coluna" | "registro";
 
-export interface Opcoes { alturaTubo: number; aparelho: string; alturaAparelho: number | null; alturaReservatorio: number; nivelAgua: number; colunaTopo: string | null }
+export interface Opcoes { modeloRegistro: ElRegistro["modelo"]; alturaTubo: number; aparelho: string; alturaAparelho: number | null; alturaReservatorio: number; nivelAgua: number; colunaTopo: string | null }
 
 interface Snap { x: number; y: number; tipo: "ponto" | "meio" | "orto" | "planta" | "livre" }
 
@@ -22,6 +23,7 @@ export interface ResultadoCalculo {
   alertas: string[];
   erros: { mensagem: string; elementos: string[] }[];
   avisos: { mensagem: string; elementos: string[] }[];
+  materiais: LinhaMaterial[];
 }
 
 const COR = {
@@ -31,7 +33,7 @@ const COR = {
 
 export class Editor {
   ferramenta: NomeFerramenta = "selecionar";
-  opcoes: Opcoes = { alturaTubo: 2.6, aparelho: "lavatorio", alturaAparelho: null, alturaReservatorio: 0.5, nivelAgua: 0, colunaTopo: null };
+  opcoes: Opcoes = { modeloRegistro: "gaveta", alturaTubo: 2.6, aparelho: "lavatorio", alturaAparelho: null, alturaReservatorio: 0.5, nivelAgua: 0, colunaTopo: null };
   selecao = new Set<string>();
   orto = false;
   snapPlanta = true;
@@ -125,6 +127,7 @@ export class Editor {
     if (el.tipo === "tubo") el.altura ??= this.opcoes.alturaTubo;
     if (el.tipo === "reservatorio") { el.altura ??= this.opcoes.alturaReservatorio; el.nivelAgua ??= this.opcoes.nivelAgua; }
     if (el.tipo === "coluna" && !el.topoId) throw new Error("Coluna sem pavimento de topo");
+    if (el.tipo === "registro") el.modelo ??= this.opcoes.modeloRegistro;
     this.checkpoint();
     this.p.elementos.push(el);
     this.alterou();
@@ -178,6 +181,7 @@ export class Editor {
       aparelho: "Ponto de utilização: clique para inserir. Esc encerra.",
       reservatorio: "Reservatório: clique onde fica a saída de água.",
       coluna: "Coluna: clique onde a tubulação sobe/desce entre os pavimentos.",
+      registro: "Registro: clique sobre um tubo.",
     };
     if (dica[f]) this.mensagem(dica[f]);
   }
@@ -271,6 +275,9 @@ export class Editor {
       } else if (this.ferramenta === "reservatorio") {
         this.inserir({ tipo: "reservatorio", x: s.x, y: s.y, altura: this.opcoes.alturaReservatorio, nivelAgua: this.opcoes.nivelAgua, rotulo: this.proximoRotulo("RES") });
         this.definirFerramenta("selecionar");
+      } else if (this.ferramenta === "registro") {
+        if (s.tipo !== "meio" && !(s.tipo === "ponto" && this.tuboEm(s.x, s.y))) throw new Error("Clique sobre um tubo para inserir o registro");
+        this.inserir({ tipo: "registro", x: s.x, y: s.y, modelo: this.opcoes.modeloRegistro } as Partial<ElRegistro> & { tipo: "registro" });
       } else if (this.ferramenta === "coluna") {
         const topo = this.colunasTopoPadrao();
         if (!topo) throw new Error("Crie outro pavimento para a coluna chegar");
@@ -297,6 +304,18 @@ export class Editor {
     const dentro = (px: number, py: number) => px >= xa && px <= xb && py >= ya && py <= yb;
     const ids = this.visiveis().filter((el) => el.tipo === "tubo" ? dentro(el.x1, el.y1) && dentro(el.x2, el.y2) : dentro(el.x, el.y)).map((el) => el.id);
     this.selecionar(ids, somar);
+  }
+
+  /** Tubo do pavimento ativo que passa por (x, y). */
+  tuboEm(x: number, y: number): ElTubo | null {
+    const tol = 2 / this.vista.pxPorUnidade;
+    for (const e of this.visiveis()) {
+      if (e.tipo !== "tubo") continue;
+      const L2 = (e.x2 - e.x1) ** 2 + (e.y2 - e.y1) ** 2 || 1;
+      const s = Math.max(0, Math.min(1, ((x - e.x1) * (e.x2 - e.x1) + (y - e.y1) * (e.y2 - e.y1)) / L2));
+      if (Math.hypot(e.x1 + s * (e.x2 - e.x1) - x, e.y1 + s * (e.y2 - e.y1) - y) < tol) return e;
+    }
+    return null;
   }
 
   /** Elemento sob o cursor (pontos têm prioridade sobre tubos). */
@@ -410,6 +429,17 @@ export class Editor {
         ctx.beginPath(); ctx.rect(x - r, y - r, 2 * r, 2 * r); ctx.fill(); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x + r, y); ctx.stroke();
         rot = e.rotulo || "RES";
+      } else if (e.tipo === "registro") {
+        const t = this.tuboEm(e.x, e.y);
+        const ang = t ? Math.atan2(-(t.y2 - t.y1), t.x2 - t.x1) : 0;
+        const k = Math.max(5, raio * 0.75);
+        ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+        ctx.fillStyle = sel ? COR.sel : "#2f7bff"; ctx.strokeStyle = "#cfe0ff"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-k, -k * 0.7); ctx.lineTo(k, k * 0.7); ctx.lineTo(k, -k * 0.7); ctx.lineTo(-k, k * 0.7); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -k * 1.2); ctx.moveTo(-k * 0.5, -k * 1.2); ctx.lineTo(k * 0.5, -k * 1.2); ctx.stroke();
+        ctx.restore();
+        rot = e.rotulo || MODELOS_REGISTRO[e.modelo].sigla;
       } else if (e.tipo === "coluna") {
         ctx.strokeStyle = COR.coluna; ctx.fillStyle = "#15191f";
         ctx.beginPath(); ctx.arc(x, y, raio * 0.9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();

@@ -38,6 +38,7 @@
         <button data-ferramenta="reservatorio" title="Reservatório (R)"><span class="ico">▤</span>Reservatório</button>
         <button data-ferramenta="tubo" title="Tubulação (T)"><span class="ico">╱</span>Tubo</button>
         <button data-ferramenta="aparelho" title="Ponto de utilização: lavatório, bacia, chuveiro… (P)"><span class="ico">◉</span>Ponto</button>
+        <button data-ferramenta="registro" title="Registro de gaveta, pressão ou esfera sobre o tubo (G)"><span class="ico">⋈</span>Registro</button>
         <button data-ferramenta="coluna" title="Coluna entre pavimentos (C)"><span class="ico">⊗</span>Coluna</button>
       </nav>
       <span class="sep"></span>
@@ -46,7 +47,9 @@
       <span class="sep"></span>
       <nav class="grupo">
         <button data-cmd="calcular" class="destaque" title="Dimensionar pela NBR 5626 (F5)">Calcular</button>
+        <button data-cmd="materiais" title="Lista de materiais por pavimento (Tigre, Amanco…)">Materiais</button>
         <button data-cmd="exportarMemorial" title="Salvar o memorial de cálculo (Markdown)">Memorial</button>
+        <button data-cmd="prancha" title="Gerar prancha em PDF (planta, isométricos, lista, selo)">Prancha PDF</button>
       </nav>
     </div>
 
@@ -88,13 +91,16 @@
       <section class="painel resultados" id="painelResultados"></section>
     </aside>
 
+    <dialog id="dlgMateriais" class="dialogo"></dialog>
+    <dialog id="dlgPrancha" class="dialogo"></dialog>
+
     <footer class="status">
       <span id="coord">x —  y —</span>
       <span id="pavAtivo" class="pav-ativo"></span>
       <span id="unidade"></span>
       <span id="escalaVista"></span>
       <span id="mensagem" class="mensagem"></span>
-      <span class="versao">OpenHidro 0.2 · M2</span>
+      <span class="versao">OpenHidro 0.3</span>
     </footer>
 
     <script type="module" src="/src/main.ts"></script>

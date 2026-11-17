@@ -26,8 +26,18 @@ export interface ElReservatorio extends Base { tipo: "reservatorio"; x: number; 
 /** Coluna (prumada): trecho vertical em (x, y) que atravessa do pavimento base ao pavimento topo. */
 export interface ElColuna extends Base { tipo: "coluna"; x: number; y: number; topoId: string }
 
-export type Elemento = ElAparelho | ElTubo | ElReservatorio | ElColuna;
+/** Registro no meio de um tubo (gaveta, pressão ou esfera). Não muda a geometria; entra na perda de
+ *  carga do trecho e na lista de materiais. */
+export interface ElRegistro extends Base { tipo: "registro"; x: number; y: number; modelo: "gaveta" | "pressao" | "esfera" }
+
+export type Elemento = ElAparelho | ElTubo | ElReservatorio | ElColuna | ElRegistro;
 
 export const NOMES_TIPO: Record<Elemento["tipo"], string> = {
-  aparelho: "Ponto de utilização", tubo: "Tubo", reservatorio: "Reservatório", coluna: "Coluna",
+  aparelho: "Ponto de utilização", tubo: "Tubo", reservatorio: "Reservatório", coluna: "Coluna", registro: "Registro",
+};
+
+export const MODELOS_REGISTRO: Record<ElRegistro["modelo"], { nome: string; sigla: string; perda: string }> = {
+  gaveta: { nome: "Registro de gaveta", sigla: "RG", perda: "registro_gaveta" },
+  pressao: { nome: "Registro de pressão", sigla: "RP", perda: "registro_globo" },
+  esfera: { nome: "Registro de esfera", sigla: "RE", perda: "registro_gaveta" },
 };

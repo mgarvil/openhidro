@@ -6,25 +6,29 @@
 // - Cadeias sem derivação viram um único trecho; joelhos e tês são contados pela geometria.
 // - Cada reservatório com sua árvore de tubos vira uma rede independente.
 import type { Pavimento } from "../projeto";
-import { SIGLAS, type ElAparelho, type ElReservatorio, type Elemento, type ElTubo } from "./elementos";
+import { MODELOS_REGISTRO, SIGLAS, type ElAparelho, type ElRegistro, type ElReservatorio, type Elemento, type ElTubo } from "./elementos";
 
 const TOL = 0.005;       // m — coincidência de pontos em planta
 const TOL_Z = 0.002;     // m
 
 export interface SegmentoTrecho { el: string; pavimentoId: string; x1: number; y1: number; x2: number; y2: number; vertical: boolean }
 export interface TrechoMontado { id: string; de: string; para: string; elementos: string[]; segmentos: SegmentoTrecho[] }
+/** Grafo 3D da rede (metros), para lista de materiais e isométricos. */
+export interface NoGrafo { i: number; x: number; y: number; z: number; dx: number; dy: number; pav: string; ap?: string; res?: string; reg?: string; nome?: string }
+export interface ArestaGrafo { a: number; b: number; trecho: string; vertical: boolean; el?: string }
 export interface RedeMontada {
   id: string;                         // id do reservatório
   rede: any;                          // JSON do motor
   trechos: TrechoMontado[];
   nos: Record<string, string>;        // id do nó -> id do elemento (aparelho/reservatório)
+  grafo: { nos: NoGrafo[]; arestas: ArestaGrafo[]; pai: Record<number, number> };   // pai: nó -> nó a montante
 }
 export interface Problema { mensagem: string; elementos: string[] }
 export interface ResultadoMontagem { redes: RedeMontada[]; erros: Problema[]; avisos: Problema[] }
 
 interface NoG {
   i: number; x: number; y: number; z: number; pav: string;
-  ap?: ElAparelho; res?: ElReservatorio; arestas: number[];
+  ap?: ElAparelho; res?: ElReservatorio; reg?: ElRegistro; arestas: number[];
   dx: number; dy: number;            // coordenadas de desenho (para rótulos)
 }
 interface ArestaG { i: number; a: number; b: number; el?: string; vertical: boolean; comp: number }
@@ -70,6 +74,7 @@ export function montarRedes(elementos: Elemento[], pavimentos: Pavimento[], esca
   const pontas: { x: number; y: number; z: number | null; pav: string | null; t: ElTubo | null }[] = tubos.flatMap((t) => [
     { x: t.x1, y: t.y1, z: zDe(t.pavimentoId, t.altura), pav: t.pavimentoId, t }, { x: t.x2, y: t.y2, z: zDe(t.pavimentoId, t.altura), pav: t.pavimentoId, t }]);
   for (const e of elementos) if (e.tipo !== "tubo") pontas.push({ x: e.x, y: e.y, z: null, pav: e.tipo === "coluna" ? null : e.pavimentoId, t: null });
+  // (registros também partem o tubo: o nó criado recebe o registro logo abaixo)
   for (const t of tubos) {
     const z = zDe(t.pavimentoId, t.altura);
     const L = Math.hypot(t.x2 - t.x1, t.y2 - t.y1);
@@ -130,6 +135,12 @@ export function montarRedes(elementos: Elemento[], pavimentos: Pavimento[], esca
     for (const n of ligados) p.nos.add(n);
   }
   for (const p of pilhas) empilhar([...p.nos], p.coluna);
+  for (const e of elementos) {
+    if (e.tipo !== "registro" || !cota.has(e.pavimentoId)) continue;
+    const ns = nosEm(e.x, e.y, (n) => n.pav === e.pavimentoId && n.arestas.length > 0);
+    if (!ns.length) avisos.push({ mensagem: "Registro fora de tubo", elementos: [e.id] });
+    for (const n of ns) n.reg = e;
+  }
 
   // ---- componentes
   const visto = new Uint8Array(nos.length);
@@ -242,6 +253,8 @@ function montarArvore(raiz: NoG, nos: NoG[], arestas: ArestaG[], erros: Problema
   };
   empilharSaidas(raiz.i, null);
   let nt = 0;
+  const arestaTrecho = new Map<number, string>();
+  const nosRede = new Set<number>([raiz.i]);
   while (pilha.length) {
     const { no: ini, aresta: a0, chegada } = pilha.shift()!;
     const conexoes: Record<string, number> = {};
@@ -271,6 +284,9 @@ function montarArvore(raiz: NoG, nos: NoG[], arestas: ArestaG[], erros: Problema
       }
       dAnterior = d;
       atual = prox;
+      nosRede.add(atual);
+      arestaTrecho.set(ai, `T${nt + 1}`);
+      if (nos[atual].reg) soma(MODELOS_REGISTRO[nos[atual].reg!.modelo].perda);
       if (articulacao(nos[atual])) break;
       ai = nos[atual].arestas.find((x) => x !== ai)!;
     }
@@ -291,7 +307,17 @@ function montarArvore(raiz: NoG, nos: NoG[], arestas: ArestaG[], erros: Problema
     parametros: { nivel_agua_m: raiz.res!.nivelAgua ?? 0 },
     nos: redeNos, trechos: redeTrechos,
   };
-  return { id: raiz.res!.id, rede, trechos, nos: mapaNos };
+  const idx = new Map<number, number>();
+  const gNos: NoGrafo[] = [...nosRede].map((n, k) => {
+    idx.set(n, k);
+    const o = nos[n];
+    return { i: k, x: o.x, y: o.y, z: o.z, dx: o.dx, dy: o.dy, pav: o.pav, ap: o.ap?.id, res: o.res?.id, reg: o.reg?.id, nome: nomes.get(n) };
+  });
+  const gArestas: ArestaGrafo[] = [...arestaTrecho].map(([ai, t]) => ({
+    a: idx.get(arestas[ai].a)!, b: idx.get(arestas[ai].b)!, trecho: t, vertical: arestas[ai].vertical, el: arestas[ai].el }));
+  const gPai: Record<number, number> = {};
+  for (const [n, ai] of pai) if (idx.has(n)) gPai[idx.get(n)!] = idx.get(outro(arestas[ai], n))!;
+  return { id: raiz.res!.id, rede, trechos, nos: mapaNos, grafo: { nos: gNos, arestas: gArestas, pai: gPai } };
 }
 
 /** DN imposto pelo projetista: se todos os tubos do trecho têm o mesmo DN fixado, vale para o trecho. */

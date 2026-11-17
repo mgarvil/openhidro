@@ -2,7 +2,8 @@ import { carregarDxf, decodificarDxf, type Desenho } from "./dxf/carregar";
 import * as C from "./comandos";
 import { Editor, type NomeFerramenta, type ResultadoCalculo } from "./editor";
 import { aplicarDnImposto, montarRedes } from "./modelo/rede";
-import { chamarMotor, escolherArquivo, lerCaminho, salvarTexto } from "./plataforma";
+import { barras, csvMateriais, FABRICANTES, listaDeMateriais } from "./modelo/quantitativo";
+import { chamarMotor, escolherArquivo, lerCaminho, salvarBinario, salvarTexto } from "./plataforma";
 import { lerProjeto, novoPavimento, novoProjeto, ordenarPavimentos, serializar, type Pavimento, type Projeto } from "./projeto";
 import { PainelCamadas } from "./ui/camadas";
 import { Paineis } from "./ui/paineis";
@@ -311,6 +312,8 @@ C.registrar({ nome: "inserirReservatorio", descricao: "Insere reservatório {x, 
   executar: (a: any) => editor.inserir({ tipo: "reservatorio", x: a.x, y: a.y, altura: a.altura, nivelAgua: a.nivelAgua, pavimentoId: pavDe(a), rotulo: a.rotulo ?? editor.proximoRotulo("RES") }).id });
 C.registrar({ nome: "inserirColuna", descricao: "Insere coluna {x, y, pavimento (base), topo}",
   executar: (a: any) => editor.inserir({ tipo: "coluna", x: a.x, y: a.y, pavimentoId: pavDe(a), topoId: pav(a.topo).id, rotulo: a.rotulo ?? editor.proximoRotulo("AF-") }).id });
+C.registrar({ nome: "inserirRegistro", descricao: "Insere registro sobre um tubo {x, y, modelo: gaveta|pressao|esfera, pavimento?}",
+  executar: (a: any) => editor.inserir({ tipo: "registro", x: a.x, y: a.y, modelo: a.modelo ?? "gaveta", pavimentoId: pavDe(a) }).id });
 C.registrar({ nome: "excluirElementos", descricao: "Exclui elementos {ids}", executar: (a: any) => editor.excluir(a.ids) });
 C.registrar({ nome: "alterarElementos", descricao: "Altera propriedades {ids, dados}", executar: (a: any) => editor.alterar(a.ids, a.dados) });
 C.registrar({ nome: "selecionar", descricao: "Seleciona elementos {ids} e mostra na tela", executar: (a: any) => irPara(a.ids) });
@@ -322,7 +325,7 @@ C.registrar({ nome: "listarElementos", descricao: "Lista os elementos do projeto
 
 C.registrar({ nome: "calcular", descricao: "Dimensiona a água fria (NBR 5626) e mostra diâmetros e pressões", async executar() {
   const m = montarRedes(projeto.elementos, projeto.pavimentos, projeto.config.escalaMetro);
-  const r: ResultadoCalculo = { redes: [], trechos: [], pontos: [], alertas: [], erros: m.erros, avisos: m.avisos };
+  const r: ResultadoCalculo = { redes: [], trechos: [], pontos: [], alertas: [], erros: m.erros, avisos: m.avisos, materiais: [] };
   if (!m.redes.length && !m.erros.length) { mensagem("Nada para calcular: lance um reservatório, tubos e pontos de utilização.", true); return; }
   mensagem("Calculando…");
   for (const rm of m.redes) {
@@ -342,6 +345,7 @@ C.registrar({ nome: "calcular", descricao: "Dimensiona a água fria (NBR 5626) e
     }
     r.alertas.push(...resp.resultado.alertas.map((a: string) => (m.redes.length > 1 ? `${rm.rede.nome}: ` : "") + a));
   }
+  r.materiais = materiaisDe(r);
   editor.resultado = r;
   editor.problemas = new Set([...r.erros, ...r.avisos].flatMap((p) => p.elementos));
   paineis.resultados();
@@ -349,6 +353,92 @@ C.registrar({ nome: "calcular", descricao: "Dimensiona a água fria (NBR 5626) e
   const pend = r.erros.length + r.trechos.filter((t) => !t.ok).length + r.pontos.filter((p) => !p.ok).length;
   mensagem(pend ? `Cálculo concluído com ${pend} pendência(s) — veja o painel à direita.` : "Cálculo concluído: todos os pontos atendidos.", pend > 0);
   return { pendencias: pend, trechos: r.trechos, pontos: r.pontos, erros: r.erros, alertas: r.alertas };
+} });
+
+function materiaisDe(r: ResultadoCalculo) {
+  return listaDeMateriais(r.redes.map((x) => ({ montada: x.montada,
+    dn: new Map<string, number>(x.resposta.resultado.trechos.map((t: any) => [t.id, t.dn])) })), projeto.elementos, projeto.config.fabricante);
+}
+const nomePav = (id: string) => projeto.pavimentos.find((p) => p.id === id)?.nome ?? id;
+
+C.registrar({ nome: "materiais", descricao: "Mostra a lista de materiais (calcula antes, se preciso)", async executar(a?: any) {
+  if (!editor.resultado?.redes.length) await C.executar("calcular");
+  const r = editor.resultado;
+  if (!r?.redes.length) return [];
+  if (a?.semJanela) return r.materiais;
+  const dlg = $("dlgMateriais") as HTMLDialogElement;
+  const f = (v: number, u: string) => u === "m" ? v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(v);
+  const render = () => {
+    const ls = r.materiais;
+    const pavs = projeto.pavimentos.slice().reverse().filter((p) => ls.some((l) => l.pavimentoId === p.id));
+    dlg.innerHTML = `<div class="dlg-cab"><h2>Lista de materiais — água fria</h2>
+        <label>Fabricante <select id="fabMat">${FABRICANTES.map((x) => `<option ${x === projeto.config.fabricante ? "selected" : ""}>${x}</option>`).join("")}</select></label>
+        <button id="csvMat">Exportar CSV</button><button id="fecharMat">Fechar</button></div>
+      <div class="dlg-corpo">${pavs.map((p) => {
+        const lp = ls.filter((l) => l.pavimentoId === p.id);
+        const grupos = [...new Set(lp.map((l) => l.grupo))];
+        return `<h3>${esc(p.nome)}</h3><table class="tab mat"><thead><tr><th>Descrição</th><th>Código</th><th>Qtd.</th><th>Un.</th><th>Barras 6 m</th></tr></thead><tbody>
+          ${grupos.map((g) => `<tr class="grupo"><td colspan="5">${esc(g)}</td></tr>` + lp.filter((l) => l.grupo === g).map((l) =>
+            `<tr class="${l.foraCatalogo ? "fora" : ""}" title="${l.foraCatalogo ? "Peça não encontrada no catálogo do fabricante" : ""}"><td>${esc(l.descricao)}</td><td>${l.codigo ?? "—"}</td>
+             <td>${f(l.qtd, l.unidade)}</td><td>${l.unidade}</td><td>${l.unidade === "m" ? barras(l.qtd) : ""}</td></tr>`).join("")).join("")}
+          </tbody></table>`;
+      }).join("")}
+      <p class="ressalva">Tubos com 10 % de perda de corte nas barras. Códigos de fabricante a conferir no catálogo vigente. A responsabilidade técnica é do engenheiro.</p></div>`;
+    dlg.querySelector("#fecharMat")!.addEventListener("click", () => dlg.close());
+    dlg.querySelector("#fabMat")!.addEventListener("change", (ev) => {
+      projeto.config.fabricante = (ev.target as HTMLSelectElement).value;
+      r.materiais = materiaisDe(r); marcarAlterado(); render();
+    });
+    dlg.querySelector("#csvMat")!.addEventListener("click", async () => {
+      const nome = (projeto.nome || "projeto").replace(/[\\/:*?"<>|]/g, "_") + "_materiais.csv";
+      const c = await salvarTexto("\ufeff" + csvMateriais(r.materiais, nomePav), nome, null, "csv", "Lista de materiais");
+      if (c) mensagem(`Lista salva: ${c}`);
+    });
+  };
+  render();
+  if (!dlg.open) dlg.showModal();
+  return r.materiais;
+} });
+
+const CAMPOS_SELO: [keyof Projeto["config"]["selo"], string][] = [
+  ["empresa", "Empresa / projetista"], ["contato", "Contato"], ["responsavel", "Responsável técnico"], ["registro", "CREA / CAU"],
+  ["obra", "Obra"], ["endereco", "Endereço"], ["proprietario", "Proprietário"], ["disciplina", "Disciplina"],
+  ["revisao", "Revisão"], ["data", "Data"], ["notas", "Notas"]];
+
+async function gerarPdf() {
+  if (!editor.resultado?.redes.length) await C.executar("calcular");
+  const r = editor.resultado;
+  if (!r?.redes.length) throw new Error("Calcule a rede antes de gerar a prancha");
+  mensagem("Gerando prancha…");
+  await new Promise((res) => setTimeout(res, 20));
+  const { gerarPrancha } = await import("./prancha/prancha");
+  const doc = gerarPrancha({ projeto, desenhos, resultado: r });
+  const bytes = new Uint8Array(doc.output("arraybuffer"));
+  const nome = (projeto.nome || "projeto").replace(/[\\/:*?"<>|]/g, "_") + "_agua_fria.pdf";
+  const c = await salvarBinario(bytes, nome, "pdf", "Prancha PDF", "application/pdf");
+  if (c) mensagem(`Prancha salva: ${c} (${doc.getNumberOfPages()} folha(s))`);
+  return { arquivo: c, folhas: doc.getNumberOfPages() };
+}
+
+C.registrar({ nome: "prancha", descricao: "Gera a prancha em PDF {direto?: true para não abrir a janela do selo}", async executar(a?: any) {
+  if (a?.direto) return gerarPdf();
+  const dlg = $("dlgPrancha") as HTMLDialogElement;
+  const s = projeto.config.selo;
+  dlg.innerHTML = `<div class="dlg-cab"><h2>Prancha PDF — dados do selo</h2>
+      <label>Folha <select id="folhaPr">${["A0", "A1", "A2", "A3"].map((f) => `<option ${f === projeto.config.folha ? "selected" : ""}>${f}</option>`).join("")}</select></label>
+      <button id="gerarPr" class="destaque">Gerar PDF</button><button id="fecharPr">Fechar</button></div>
+    <div class="dlg-corpo"><div class="form-selo">${CAMPOS_SELO.map(([k, rot]) => `<label>${rot}</label>` +
+      (k === "notas" ? `<textarea name="${k}">${esc(s[k])}</textarea>` : `<input name="${k}" value="${esc(s[k]).replace(/"/g, "&quot;")}" />`)).join("")}</div>
+    <p class="ressalva">Uma folha por pavimento: planta com diâmetros, isométrico de cada ambiente, legenda, lista de materiais (${esc(projeto.config.fabricante)}), notas e selo. Os dados ficam salvos no projeto.</p></div>`;
+  dlg.querySelector("#fecharPr")!.addEventListener("click", () => dlg.close());
+  dlg.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("[name]").forEach((inp) => inp.addEventListener("change", () => {
+    (s as any)[inp.name] = inp.value; marcarAlterado();
+  }));
+  dlg.querySelector("#folhaPr")!.addEventListener("change", (ev) => { projeto.config.folha = (ev.target as HTMLSelectElement).value as any; marcarAlterado(); });
+  dlg.querySelector("#gerarPr")!.addEventListener("click", async () => {
+    try { await gerarPdf(); dlg.close(); } catch (err: any) { mensagem(err?.message ?? String(err), true); }
+  });
+  if (!dlg.open) dlg.showModal();
 } });
 
 C.registrar({ nome: "exportarMemorial", descricao: "Salva o memorial de cálculo em Markdown", async executar() {
@@ -395,6 +485,7 @@ window.addEventListener("keydown", (e) => {
   else if (k === "p") rodar("ferramenta", { nome: "aparelho" });
   else if (k === "r") rodar("ferramenta", { nome: "reservatorio" });
   else if (k === "c") rodar("ferramenta", { nome: "coluna" });
+  else if (k === "g") rodar("ferramenta", { nome: "registro" });
   else if (k === "s") rodar("ferramenta", { nome: "selecionar" });
 });
 

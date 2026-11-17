@@ -174,4 +174,21 @@ table.tab tr:hover td { background: var(--painel2); }
 table.tab tr.ruim td { color: var(--vermelho); }
 .ressalva { color: #5a6370; font-size: 11px; margin-top: 8px; line-height: 1.4; }
 
+/* diálogos */
+dialog.dialogo { background: var(--painel); color: var(--texto); border: 1px solid var(--borda); border-radius: 10px; padding: 0;
+  width: min(980px, 92vw); max-height: 88vh; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+dialog.dialogo::backdrop { background: rgba(5,8,12,.6); }
+.dlg-cab { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--borda); position: sticky; top: 0; background: var(--painel); }
+.dlg-cab h2 { margin: 0 auto 0 0; font-size: 15px; font-weight: 600; }
+.dlg-cab select, .dlg-corpo input, .dlg-corpo textarea, .dlg-corpo select { font: inherit; color: var(--texto); background: var(--fundo); border: 1px solid var(--borda); border-radius: 5px; padding: 4px 6px; }
+.dlg-corpo { padding: 8px 16px 16px; overflow-y: auto; max-height: calc(88vh - 60px); }
+.dlg-corpo h3 { font-size: 13px; color: #3fb6ff; margin: 14px 0 6px; }
+table.tab.mat td { text-align: left; }
+table.tab.mat td:nth-child(3), table.tab.mat td:nth-child(5) { text-align: right; }
+table.tab.mat tr.grupo td { color: var(--texto2); font-weight: 600; background: var(--painel2); }
+table.tab.mat tr.fora td { color: #e0b44c; }
+.form-selo { display: grid; grid-template-columns: 170px 1fr; gap: 6px 10px; align-items: center; font-size: 12.5px; }
+.form-selo label { color: var(--texto2); }
+.form-selo textarea { min-height: 90px; resize: vertical; }
+
 [hidden] { display: none !important; }

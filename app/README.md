@@ -41,3 +41,13 @@ npx tauri build      # gera o instalador em src-tauri/target/release/bundle/
 O instalador leva o motor Python empacotado com PyInstaller (`binaries/openhidro-motor`, sidecar do
 Tauri), gerado pela CI a partir de `scripts/motor_entrada.py`. O aplicativo grava o pedido num arquivo
 temporário e lê a resposta JSON (ver `src/openhidro/ponte.py`). Não é preciso instalar Python.
+
+## 0.3 — materiais e prancha
+- **Registro** (G): gaveta, pressão ou esfera sobre o tubo; entra na perda de carga e na lista
+- **Materiais**: lista por pavimento com as peças do fabricante escolhido (Tigre ou Amanco): tubos
+  (m e barras), joelhos, tês, tês de redução, buchas, peças azuis com bucha de latão nos pontos,
+  adaptadores, registros, engates; exporta CSV. Catálogo em `src/dados/catalogo.json`, gerado de
+  `src/openhidro/catalogo` (`python scripts/gerar_dados_app.py`)
+- **Prancha PDF** (A0–A3): uma folha por pavimento com planta (planta de fundo, tubos, Ø, pontos,
+  registros, colunas, áreas de detalhe), isométrico de cada ambiente (alturas, Ø, roscas), legenda,
+  lista de materiais, notas e selo editável

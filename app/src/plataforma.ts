@@ -80,3 +80,20 @@ export async function chamarMotor(pedido: unknown): Promise<any> {
   if (!resp.ok) throw new Error(resp.erro);
   return resp;
 }
+
+export async function salvarBinario(bytes: Uint8Array, nomeSugerido: string, extensao: string, titulo: string, tipo: string): Promise<string | null> {
+  if (noTauri) {
+    const { save } = await import("@tauri-apps/plugin-dialog");
+    const { writeFile } = await import("@tauri-apps/plugin-fs");
+    const caminho = await save({ title: titulo, defaultPath: nomeSugerido, filters: [{ name: titulo, extensions: [extensao] }] });
+    if (!caminho) return null;
+    await writeFile(caminho, bytes);
+    return caminho;
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([bytes as BlobPart], { type: tipo }));
+  a.download = nomeSugerido;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  return nomeSugerido;
+}

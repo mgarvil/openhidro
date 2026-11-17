@@ -26,6 +26,7 @@ from . import __version__
 from .calculo import dimensionar_agua_fria, dimensionar_esgoto
 from .io import relatorio as R
 from .modelo import Rede
+from .catalogo import PONTOS, ROSCA_DN, catalogo
 from .normas import nbr5626 as N
 
 
@@ -43,12 +44,18 @@ def catalogo_agua_fria() -> dict:
     }
 
 
+def catalogo_pecas() -> dict:
+    return {"itens": catalogo(), "pontos": PONTOS, "rosca_dn": {str(k): v for k, v in ROSCA_DN.items()}}
+
+
 def atender(pedido: dict) -> dict:
     acao = pedido.get("acao")
     if acao == "versao":
         return {"ok": True, "versao": __version__}
     if acao == "aparelhos":
         return {"ok": True, **catalogo_agua_fria()}
+    if acao == "catalogo":
+        return {"ok": True, **catalogo_pecas()}
     if acao == "dimensionar":
         rede = Rede.from_dict(pedido["rede"])
         if rede.sistema == "agua_fria":
