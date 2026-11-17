@@ -38,7 +38,9 @@ export function gerarPrancha(e: EntradaPrancha): jsPDF {
   const pavs = projeto.pavimentos.slice().reverse().filter((p) => projeto.elementos.some((x) => x.pavimentoId === p.id ||
     (x.tipo === "coluna" && x.topoId === p.id)));
   let numDetalhe = 0;
-  const total = pavs.length;
+  const colunas = projeto.elementos.filter((x) => x.tipo === "coluna");
+  const temEsquema = colunas.length > 0;
+  const total = pavs.length + (temEsquema ? 1 : 0);
 
   pavs.forEach((pav, folha) => {
     if (folha > 0) doc.addPage([W, H], "landscape");
@@ -79,6 +81,21 @@ export function gerarPrancha(e: EntradaPrancha): jsPDF {
     desenharNotas(doc, projeto, fx0, yNotas, fx1, y1 - alturaSelo);
     desenharSelo(doc, projeto, pav, fx0, y1 - alturaSelo, fx1, y1, folha + 1, total);
   });
+
+  if (temEsquema) {
+    doc.addPage([W, H], "landscape");
+    const x0 = 25, y0 = 10, x1 = W - 10, y1 = H - 10;
+    const faixa = W >= 800 ? 180 : W >= 590 ? 150 : 118;
+    cor(doc, PRETO); doc.setLineWidth(0.7); doc.rect(x0, y0, x1 - x0, y1 - y0);
+    doc.setLineWidth(0.35); doc.line(x1 - faixa, y0, x1 - faixa, y1);
+    desenharEsquemaVertical(doc, e, redes, porEl, [x0 + 6, y0 + 6, x1 - faixa - 6, y1 - 6]);
+    const fx0 = x1 - faixa, alturaSelo = 92;
+    let y = desenharLegenda(doc, fx0 + 4, y0 + 4, faixa - 8);
+    desenharNotas(doc, projeto, fx0, y1 - alturaSelo - 38, x1, y1 - alturaSelo);
+    desenharSelo(doc, projeto, { id: "", nome: "Esquema vertical", cota: 0, peDireito: 0, fundo: null, vista: null }, fx0, y1 - alturaSelo, x1, y1,
+                 total, total, "Esquema vertical das colunas de água fria");
+    void y;
+  }
   return doc;
 }
 
@@ -319,6 +336,113 @@ function desenharIsometricos(doc: jsPDF, e: EntradaPrancha, detalhes: Detalhe[],
   });
 }
 
+// ============================================================ esquema vertical
+/** Corte esquemático de cada coluna: escala vertical real, horizontal esquemática. */
+function desenharEsquemaVertical(doc: jsPDF, e: EntradaPrancha, redes: { montada: RedeMontada; dn: Map<string, number> }[],
+                                 porEl: Map<string, Elemento>, area: [number, number, number, number]) {
+  const [ax0, ay0, ax1, ay1] = area;
+  const paineis: { rede: RedeMontada; dn: Map<string, number>; coluna: Elemento; nos: number[] }[] = [];
+  for (const r of redes) {
+    const col = new Map<string, Set<number>>();
+    for (const a of r.montada.grafo.arestas) if (a.el && porEl.get(a.el)?.tipo === "coluna") {
+      const s = col.get(a.el) ?? col.set(a.el, new Set()).get(a.el)!;
+      s.add(a.a); s.add(a.b);
+    }
+    for (const [id, ns] of col) paineis.push({ rede: r.montada, dn: r.dn, coluna: porEl.get(id)!, nos: [...ns] });
+  }
+  if (!paineis.length) return;
+  const pavs = e.projeto.pavimentos.slice().sort((a, b) => a.cota - b.cota);
+  const zmin = Math.min(...pavs.map((p) => p.cota)) - 0.3;
+  const zmax = Math.max(...pavs.map((p) => p.cota + p.peDireito), ...paineis.flatMap((p) => p.nos.map((i) => p.rede.grafo.nos[i].z))) + 0.8;
+  const den = [25, 50, 75, 100, 125, 150, 200].find((d) => ((zmax - zmin) * 1000) / d <= ay1 - ay0 - 24) ?? 200;
+  const k = 1000 / den;
+  const yDe = (z: number) => ay1 - 16 - (z - zmin) * k;
+  const larg = Math.min(220, (ax1 - ax0 - 40) / paineis.length);
+  // níveis dos pavimentos
+  doc.setLineDashPattern([3, 1.5], 0); doc.setDrawColor(...CINZA); doc.setLineWidth(0.2);
+  for (const p of pavs) {
+    const y = yDe(p.cota);
+    doc.line(ax0 + 30, y, ax1, y);
+    doc.setFillColor(...PRETO); doc.triangle(ax0 + 31, y - 2.2, ax0 + 35, y - 2.2, ax0 + 33, y, "F");
+    doc.setFontSize(2.1 * PT); doc.setTextColor(...PRETO);
+    doc.text(`${p.nome}`, ax0, y - 0.8);
+    doc.setTextColor(...CINZA); doc.setFontSize(1.8 * PT);
+    doc.text(`${p.cota >= 0 ? "+" : ""}${fmt(p.cota)} m`, ax0, y + 2.6);
+  }
+  doc.setLineDashPattern([], 0);
+
+  paineis.forEach((pn, i) => {
+    const G = pn.rede.grafo;
+    const filhos = new Map<number, number[]>();
+    for (const [c, p] of Object.entries(G.pai)) (filhos.get(p) ?? filhos.set(p, []).get(p)!).push(Number(c));
+    const aresta = (a: number, b: number) => G.arestas.find((x) => (x.a === a && x.b === b) || (x.a === b && x.b === a));
+    const xc = ax0 + 45 + i * larg + larg / 2;
+    const zs = pn.nos.map((n) => G.nos[n].z);
+    // coluna
+    doc.setDrawColor(...AZUL); doc.setLineWidth(0.6);
+    doc.line(xc, yDe(Math.min(...zs)), xc, yDe(Math.max(...zs)));
+    const dnCol = Math.max(...G.arestas.filter((a) => a.el === pn.coluna.id).map((a) => pn.dn.get(a.trecho) ?? 0));
+    // ligação ao reservatório (barrilete), se a coluna é alimentada por cima
+    const topo = pn.nos.reduce((a, b) => (G.nos[a].z >= G.nos[b].z ? a : b));
+    let v: number | undefined = topo, achou: NoGrafo | null = null;
+    for (let k2 = 0; k2 < 50 && v !== undefined; k2++) { if (G.nos[v].res) { achou = G.nos[v]; break; } v = G.pai[v]; }
+    if (achou) {
+      const yr = yDe(achou.z), yt = yDe(G.nos[topo].z);
+      doc.setDrawColor(...AZUL); doc.setLineWidth(0.6);
+      doc.line(xc, yt, xc - 12, yt); doc.line(xc - 12, yt, xc - 12, yr);
+      doc.setDrawColor(...PRETO); doc.setLineWidth(0.3); doc.setFillColor(225, 235, 250);
+      doc.rect(xc - 22, yr - 12, 20, 12, "FD");
+      doc.setFontSize(2 * PT); doc.setTextColor(...PRETO);
+      const el = achou.res ? porEl.get(achou.res) : null;
+      doc.text(el?.rotulo || "RES", xc - 12, yr - 5, { align: "center" });
+    }
+    balao(doc, xc + 6, yDe(Math.max(...zs)) + 6, pn.coluna.rotulo || "AF", dnCol ? `ø${dnCol}` : "");
+    // derivações em cada nó da coluna
+    for (const n of pn.nos) {
+      let lado = 0;
+      for (const f of filhos.get(n) ?? []) {
+        const ar = aresta(n, f);
+        if (!ar || ar.el === pn.coluna.id) continue;
+        const sentido = lado++ % 2 === 0 ? 1 : -1;      // ramais alternam à direita e à esquerda da coluna
+        let x = 0;
+        const yb = yDe(G.nos[n].z);
+        const pontos: { x: number; no: NoGrafo; dn: number }[] = [];
+        const registros: { x: number; dn: number }[] = [];
+        // percorre o ramal (profundidade) espaçando os pontos e registros
+        const pilha: number[] = [f];
+        while (pilha.length) {
+          const v = pilha.pop()!;
+          const nv = G.nos[v];
+          const a = aresta(G.pai[v], v)!;
+          const d = pn.dn.get(a.trecho) ?? 0;
+          if (nv.reg) { x += 8; registros.push({ x: xc + sentido * x, dn: d }); }
+          if (nv.ap) { x += 13; pontos.push({ x: xc + sentido * x, no: nv, dn: d }); }
+          for (const c of (filhos.get(v) ?? []).slice().reverse()) pilha.push(c);
+        }
+        const xf = xc + sentido * Math.max(x, 10);
+        doc.setDrawColor(...AZUL); doc.setLineWidth(0.45);
+        doc.line(xc, yb, xf, yb);
+        doc.setFontSize(2.1 * PT); doc.setTextColor(...AZUL);
+        doc.text(`ø${pn.dn.get(ar.trecho) ?? ""}`, xc + sentido * 3, yb - 1.2, { align: sentido > 0 ? "left" : "right" });
+        for (const r of registros) gravata(doc, r.x, yb, 0, 1.2);
+        for (const p of pontos) {
+          const yp = yDe(p.no.z);
+          doc.setDrawColor(...AZUL); doc.setLineWidth(0.4); doc.line(p.x, yb, p.x, yp);
+          doc.setFillColor(...AZUL); doc.circle(p.x, yp, 0.6, "F");
+          const el = p.no.ap ? porEl.get(p.no.ap) : null;
+          doc.setFontSize(2.1 * PT); doc.setTextColor(...PRETO);
+          doc.text(el?.tipo === "aparelho" ? (SIGLAS[el.chave] ?? "") : "", p.x, yp + 3.6, { align: "center" });
+          doc.setTextColor(...AZUL);
+          doc.text(`ø${p.dn}`, p.x + 1, (yb + yp) / 2, { angle: 90 });
+          doc.setTextColor(...CINZA);
+          doc.text(`${Math.round((p.no.z - (e.projeto.pavimentos.find((q) => q.id === p.no.pav)?.cota ?? 0)) * 100)}`, p.x - 1.2, yp - 1.5, { angle: 90 });
+        }
+      }
+    }
+  });
+  tituloVista(doc, "Esquema vertical — colunas de água fria", `Escala vertical 1:${den} · horizontal sem escala · alturas dos pontos em cm`, ax0 + 2, ay1 - 2);
+}
+
 // ============================================================ faixa direita
 function desenharLegenda(doc: jsPDF, x: number, y: number, w: number): number {
   cabecalho(doc, "Legenda", x, y, w);
@@ -376,7 +500,8 @@ function desenharNotas(doc: jsPDF, p: Projeto, x0: number, y0: number, x1: numbe
   doc.text(linhas.slice(0, Math.floor((y1 - y0 - 10) / 2.9)), x0 + 5, y0 + 9.5, { lineHeightFactor: 1.45 });
 }
 
-function desenharSelo(doc: jsPDF, p: Projeto, pav: Pavimento, x0: number, y0: number, x1: number, y1: number, folha: number, total: number) {
+function desenharSelo(doc: jsPDF, p: Projeto, pav: Pavimento, x0: number, y0: number, x1: number, y1: number, folha: number, total: number,
+                      conteudo = "Planta, isométricos e lista de materiais") {
   const s = p.config.selo, w = x1 - x0;
   doc.setDrawColor(...PRETO); doc.setLineWidth(0.5); doc.line(x0, y0, x1, y0);
   doc.setLineWidth(0.2);
@@ -395,7 +520,7 @@ function desenharSelo(doc: jsPDF, p: Projeto, pav: Pavimento, x0: number, y0: nu
   campo("Responsável técnico", [s.responsavel, s.registro].filter(Boolean).join(" — "), x0 + w / 2, y, w / 2, 9, 2.1); y += 9;
   campo("Disciplina", s.disciplina, x0, y, w, 8, 2.2); y += 8;
   const hFinal = y1 - y;
-  campo("Conteúdo", `${pav.nome}\nPlanta, isométricos e lista de materiais`, x0, y, w * 0.62, hFinal * 0.62, 3.2, true);
+  campo("Conteúdo", `${pav.nome}\n${conteudo}`, x0, y, w * 0.62, hFinal * 0.62, 3.2, true);
   campo("Prancha", `${String(folha).padStart(2, "0")}/${String(total).padStart(2, "0")}`, x0 + w * 0.62, y, w * 0.38, hFinal * 0.62, 6, true);
   const y2 = y + hFinal * 0.62, h2 = y1 - y2;
   campo("Revisão", s.revisao, x0, y2, w * 0.4, h2, 2);

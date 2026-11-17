@@ -56,3 +56,9 @@ temporário e lê a resposta JSON (ver `src/openhidro/ponte.py`). Não é precis
 - **3D** (botão ou tecla 3): modelo com tubos, conexões (bolsas), peças azuis nos pontos, registros e
   caixa d'água, com a planta de cada pavimento na sua cota. Girar: botão esquerdo; mover: direito; zoom: roda
 - **Exportar 3D**: arquivo `.glb` (glTF) para Blender, 3D Viewer do Windows e outros
+
+## 0.5 — IFC e esquema vertical
+- **IFC** (IFC4): pavimentos como IfcBuildingStorey, tubos (IfcPipeSegment), conexões (IfcPipeFitting),
+  registros (IfcValve), pontos (IfcSanitaryTerminal), reservatório (IfcTank), sistema de água fria e
+  propriedades de cálculo (DN, vazão, velocidade). Validação: `python scripts/validar_ifc.py arquivo.ifc`
+- **Prancha**: folha extra com o esquema vertical de cada coluna (níveis, ramais, registros, Ø, alturas)

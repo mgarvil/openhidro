@@ -13,6 +13,7 @@ import { Vista2D } from "./vista/vista2d";
 import { Vista3D } from "./vista/vista3d";
 import { construir3D } from "./modelo/pecas3d";
 
+const VERSAO = "0.5.0";
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const area = $("area");
@@ -485,6 +486,25 @@ C.registrar({ nome: "exportarGlb", descricao: "Exporta o modelo 3D em glTF biná
   const nome = (projeto.nome || "projeto").replace(/[\\/:*?"<>|]/g, "_") + "_agua_fria.glb";
   const c = await salvarBinario(new Uint8Array(buf), nome, "glb", "Modelo 3D (glTF)", "model/gltf-binary");
   if (c) mensagem(`Modelo 3D salvo: ${c}`);
+} });
+
+C.registrar({ nome: "exportarIfc", descricao: "Exporta a água fria em IFC4 (pavimentos, tubos, conexões, registros, pontos, reservatório)", async executar() {
+  const { gerarIfc } = await import("./exportar/ifc");
+  const m = montarRedes(projeto.elementos, projeto.pavimentos, projeto.config.escalaMetro);
+  const calc = editor.resultado;
+  const redes = m.redes.map((rm) => {
+    const r = calc?.redes.find((x) => x.montada.id === rm.id);
+    return { montada: r?.montada ?? rm,
+      dn: r ? new Map<string, number>(r.resposta.resultado.trechos.map((t: any) => [t.id, t.dn])) : null,
+      trechos: r ? new Map<string, { q: number; v: number }>(r.resposta.resultado.trechos.map((t: any) => [t.id, { q: t.vazao_ls, v: t.velocidade_ms }])) : undefined };
+  });
+  if (!calc) mensagem("Atenção: sem cálculo, o IFC sai com diâmetro provisório de 25 mm. Calcule (F5) antes.", true);
+  const txt = gerarIfc({ nome: projeto.nome || "Projeto", elementos: projeto.elementos, pavimentos: projeto.pavimentos,
+                         escala: projeto.config.escalaMetro, redes, versao: VERSAO });
+  const nome = (projeto.nome || "projeto").replace(/[\\/:*?"<>|]/g, "_") + "_agua_fria.ifc";
+  const c = await salvarTexto(txt, nome, null, "ifc", "Modelo IFC");
+  if (c) mensagem(`IFC salvo: ${c}`);
+  return c;
 } });
 
 C.registrar({ nome: "exportarMemorial", descricao: "Salva o memorial de cálculo em Markdown", async executar() {
