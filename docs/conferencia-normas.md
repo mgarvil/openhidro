@@ -31,3 +31,9 @@ oficial da ABNT por um colaborador que tenha a norma.
 
 Para conferir um item: abra uma *issue* com a tabela da norma (edição, número da tabela, página) e
 o valor divergente.
+
+## Ducha higiênica (água fria)
+
+- Peso 0,1 e vazão 0,10 L/s adotados por **equivalência ao bidê** (NBR 5626:1998, Tabela A.1), porque
+  a ducha higiênica não consta da tabela de pesos. **Pendente**: confirmar em norma, catálogo de fabricante
+  ou literatura técnica. Altura padrão 0,45 m (tabela de alturas do escritório).

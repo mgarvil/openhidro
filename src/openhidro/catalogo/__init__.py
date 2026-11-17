@@ -129,6 +129,7 @@ PONTOS = {
     "banheira": {"rosca": '3/4"', "acessorios": []},
     "bebedouro": {"rosca": '1/2"', "acessorios": []},
     "bide": {"rosca": '1/2"', "acessorios": [{"familia": "engate_flexivel", "rosca": '1/2"', "qtd": 1}]},
+    "ducha_higienica": {"rosca": '1/2"', "acessorios": []},
     "chuveiro": {"rosca": '1/2"', "acessorios": [{"familia": "registro_pressao_canopla", "rosca": '3/4"', "qtd": 1}]},
     "chuveiro_eletrico": {"rosca": '1/2"', "acessorios": [{"familia": "registro_pressao_canopla", "rosca": '3/4"', "qtd": 1}]},
     "lavadora": {"rosca": '3/4"', "acessorios": []},

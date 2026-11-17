@@ -345,7 +345,7 @@ const MARROM: RGB = [163, 96, 58], MARROM_CLARO: RGB = [224, 168, 128], MARROM_E
 const NOMES_PONTO: Record<string, string> = {
   bacia_caixa_descarga: "Vaso sanitário com caixa acoplada", bacia_valvula_descarga: "Válvula de descarga",
   banheira: "Banheira", bebedouro: "Bebedouro", bide: "Bidê", chuveiro: "Chuveiro", chuveiro_eletrico: "Chuveiro elétrico",
-  lavadora: "Máquina de lavar roupa", lavatorio: "Lavatório", mictorio_valvula: "Mictório", mictorio_caixa: "Mictório",
+  ducha_higienica: "Ducha higiênica", lavadora: "Máquina de lavar roupa", lavatorio: "Lavatório", mictorio_valvula: "Mictório", mictorio_caixa: "Mictório",
   mictorio_calha: "Mictório de calha", pia: "Pia", pia_torneira_eletrica: "Pia com torneira elétrica", tanque: "Tanque",
   torneira_jardim: "Torneira de jardim",
 };

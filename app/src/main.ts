@@ -13,8 +13,9 @@ import { IndicePontas } from "./vista/indice";
 import { Vista2D } from "./vista/vista2d";
 import { Vista3D } from "./vista/vista3d";
 import { construir3D } from "./modelo/pecas3d";
+import { ehSegmento, type Elemento } from "./modelo/elementos";
 
-const VERSAO = "0.9.0";
+const VERSAO = "0.9.1";
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const area = $("area");
@@ -91,9 +92,49 @@ const PREFERENCIA = [1, 0.001, 0.01];   // m e mm são as unidades usuais; cm po
 function adivinharEscala(d: Desenho): number {
   const e = d.extensaoPrincipal, vao = Math.max(e.xmax - e.xmin, e.ymax - e.ymin);
   const ok = (k: number) => vao * k >= 5 && vao * k <= 5000;
+  // 1º: espessura das paredes (linhas paralelas próximas) — 9 a 30 cm na unidade certa
+  const porParede = escalaPelasParedes(d);
+  if (porParede && ok(porParede)) return porParede;
   const decl = ESCALAS.find(([u]) => u === d.unidade)?.[1];
   if (decl && ok(decl)) return decl;
   return PREFERENCIA.find(ok) ?? decl ?? 0.001;
+}
+/** Distância entre cada linha horizontal/vertical e a paralela mais próxima que se sobrepõe a ela;
+ *  em paredes isso é a espessura. Vence a unidade em que mais distâncias caem entre 9 e 30 cm. */
+export function escalaPelasParedes(d: Desenho): number | null {
+  const camadas = [...d.camadas.values()];
+  const deParede = camadas.filter((c) => /par|wall|alv|muro/i.test(c.nome));
+  const fonte = deParede.length ? deParede : camadas;
+  const hs: [number, number, number][] = [], vs: [number, number, number][] = [];
+  for (const c of fonte) {
+    const s = c.segmentos;
+    for (let i = 0; i < s.length && hs.length + vs.length < 60000; i += 4) {
+      const x1 = s[i], y1 = s[i + 1], x2 = s[i + 2], y2 = s[i + 3];
+      const L = Math.hypot(x2 - x1, y2 - y1);
+      if (!L) continue;
+      if (Math.abs(y2 - y1) < 1e-6 * L) hs.push([y1, Math.min(x1, x2), Math.max(x1, x2)]);
+      else if (Math.abs(x2 - x1) < 1e-6 * L) vs.push([x1, Math.min(y1, y2), Math.max(y1, y2)]);
+    }
+  }
+  const gaps: number[] = [];
+  for (const arr of [hs, vs]) {
+    arr.sort((a, b) => a[0] - b[0]);
+    for (let i = 0; i < arr.length; i++) {
+      for (let j = i + 1; j < Math.min(arr.length, i + 40); j++) {
+        const g = arr[j][0] - arr[i][0];
+        if (g <= 0) continue;
+        const sob = Math.min(arr[i][2], arr[j][2]) - Math.max(arr[i][1], arr[j][1]);
+        if (sob > 2 * g) { gaps.push(g); break; }
+      }
+    }
+  }
+  if (gaps.length < 20) return null;
+  let melhor: number | null = null, n = 0;
+  for (const [, k] of ESCALAS) {
+    const c = gaps.filter((g) => g * k >= 0.09 && g * k <= 0.30).length;
+    if (c > n) { n = c; melhor = k; }
+  }
+  return n >= gaps.length * 0.15 ? melhor : null;
 }
 const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!);
 
@@ -334,6 +375,41 @@ C.registrar({ nome: "inserirSaidaEsgoto", descricao: "Insere a saída de esgoto 
 C.registrar({ nome: "excluirElementos", descricao: "Exclui elementos {ids}", executar: (a: any) => editor.excluir(a.ids) });
 C.registrar({ nome: "alterarElementos", descricao: "Altera propriedades {ids, dados}", executar: (a: any) => editor.alterar(a.ids, a.dados) });
 C.registrar({ nome: "selecionar", descricao: "Seleciona elementos {ids} e mostra na tela", executar: (a: any) => irPara(a.ids) });
+C.registrar({ nome: "alinhar", descricao: "Alinha pontos {ids?, eixo: 'y' (mesma linha horizontal) | 'x' (mesma vertical), valor?}. Sem ids usa a seleção; sem valor usa o primeiro selecionado. Pontas de tubo ligadas acompanham.",
+  executar(a: any) {
+    const ids: string[] = a?.ids ?? [...editor.selecao];
+    const eixo: "x" | "y" = a?.eixo === "x" ? "x" : "y";
+    const els = ids.map((id) => projeto.elementos.find((e) => e.id === id)).filter((e): e is Elemento => !!e && !ehSegmento(e));
+    if (els.length < 1) throw new Error("Selecione os pontos a alinhar");
+    const v = typeof a?.valor === "number" ? a.valor : (els[0] as any)[eixo];
+    let n = 0;
+    for (const e of els) {
+      const x0 = (e as any).x, y0 = (e as any).y;
+      if ((e as any)[eixo] === v) continue;
+      editor.alterar([e.id], { [eixo]: v } as any);
+      for (const t of projeto.elementos) if (ehSegmento(t) && t.pavimentoId === e.pavimentoId) {
+        if (t.x1 === x0 && t.y1 === y0) editor.alterar([t.id], (eixo === "x" ? { x1: v } : { y1: v }) as any);
+        if (t.x2 === x0 && t.y2 === y0) editor.alterar([t.id], (eixo === "x" ? { x2: v } : { y2: v }) as any);
+      }
+      n++;
+    }
+    vista.redesenhar();
+    mensagem(`${n} ponto(s) alinhado(s) em ${eixo} = ${fmtN(v)}`);
+    return { alinhados: n, eixo, valor: v };
+  } });
+C.registrar({ nome: "configurar", descricao: "Configura o projeto {escalaMetro? (0.001 mm | 0.01 cm | 1 m), folha? (A0–A3), fabricante?, alturasPontos? {chave: m}, alturaRegistroGaveta?, alturaRegistroPressao?}",
+  executar(a: any) {
+    const c = projeto.config;
+    if (a?.escalaMetro != null) { c.escalaMetro = Number(a.escalaMetro); editor.resultado = null; editor.problemas.clear(); if (desenho) indices.delete(desenho); }
+    if (a?.folha) c.folha = a.folha;
+    if (a?.fabricante) c.fabricante = a.fabricante;
+    if (a?.alturasPontos) c.alturasPontos = { ...c.alturasPontos, ...a.alturasPontos };
+    if (a?.alturaRegistroGaveta != null) c.alturaRegistroGaveta = Number(a.alturaRegistroGaveta);
+    if (a?.alturaRegistroPressao != null) c.alturaRegistroPressao = Number(a.alturaRegistroPressao);
+    marcarAlterado(); paineis.resultados(); vista.redesenhar(); if (desenho) mostrarInfo(desenho);
+    return { escalaMetro: c.escalaMetro, folha: c.folha, fabricante: c.fabricante, alturasPontos: c.alturasPontos,
+             alturaRegistroGaveta: c.alturaRegistroGaveta, alturaRegistroPressao: c.alturaRegistroPressao };
+  } });
 C.registrar({ nome: "desfazer", descricao: "Desfaz a última alteração", executar: () => editor.desfazer() });
 C.registrar({ nome: "refazer", descricao: "Refaz a alteração desfeita", executar: () => editor.refazer() });
 C.registrar({ nome: "enquadrar", descricao: "Enquadra a vista {xmin, ymin, xmax, ymax} (coordenadas do desenho)",

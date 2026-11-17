@@ -30,7 +30,7 @@ export const seloPadrao = (): DadosSelo => ({
  *  projeto, não valor normativo: conferir com o fabricante dos aparelhos. */
 export const ALTURAS_PONTOS_PADRAO: Record<string, number> = {
   chuveiro: 2.10, chuveiro_eletrico: 2.10, lavatorio: 0.60, bacia_caixa_descarga: 0.30, bacia_valvula_descarga: 1.00,
-  bide: 0.30, banheira: 0.55, bebedouro: 0.88, lavadora: 0.90, mictorio_valvula: 1.10, mictorio_caixa: 1.10,
+  bide: 0.30, ducha_higienica: 0.45, banheira: 0.55, bebedouro: 0.88, lavadora: 0.90, mictorio_valvula: 1.10, mictorio_caixa: 1.10,
   mictorio_calha: 1.10, pia: 1.10, pia_torneira_eletrica: 1.10, tanque: 1.10, torneira_jardim: 0.60,
 };
 export const configPadrao = (): ConfigProjeto => ({ escalaMetro: 0.001, alturaTubo: 2.6, fabricante: "Tigre", selo: seloPadrao(), folha: "A1",

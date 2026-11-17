@@ -170,6 +170,7 @@ export class Paineis {
     const titulo = um ? NOMES_TIPO[um.tipo] + (um.tipo === "aparelho" ? ` — ${SIGLAS[um.chave] ?? ""}` : um.tipo === "ponto_esgoto" ? ` — ${SIGLAS_ES[um.chave] ?? ""}` : "")
                       : `${sel.length} elementos selecionados`;
     el.innerHTML = `<h2>${esc(titulo)}</h2><div class="form">${campos}</div>
+      ${sel.filter((e) => !("x1" in e)).length >= 2 ? `<div class="acoes-painel"><button data-a="alinhar-y" title="Todos com o mesmo Y do primeiro selecionado">Alinhar na horizontal</button><button data-a="alinhar-x" title="Todos com o mesmo X do primeiro selecionado">Alinhar na vertical</button></div>` : ""}
       <div class="acoes-painel"><button data-a="ir">Mostrar</button><button data-a="excluir" class="perigo">Excluir (Del)</button></div>`;
     el.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input[name], select[name]").forEach((inp) =>
       inp.addEventListener("change", () => {
@@ -189,6 +190,8 @@ export class Paineis {
       }));
     el.querySelector('[data-a="excluir"]')!.addEventListener("click", () => this.executar("excluirElementos", { ids }));
     el.querySelector('[data-a="ir"]')!.addEventListener("click", () => this.irPara(ids));
+    el.querySelector('[data-a="alinhar-y"]')?.addEventListener("click", () => this.executar("alinhar", { ids, eixo: "y" }));
+    el.querySelector('[data-a="alinhar-x"]')?.addEventListener("click", () => this.executar("alinhar", { ids, eixo: "x" }));
   }
 
   // ------------------------------------------------------------ resultados

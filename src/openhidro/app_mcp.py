@@ -51,6 +51,10 @@ Boas práticas de lançamento (correções do engenheiro — siga sempre):
   outro na altura do ramal da parede, com as pontas no mesmo x,y, viram descida automaticamente.
   Ramal na parede: ~1,20 m para mictórios, ~0,90 m para lavatórios, ~0,60 m para bacias com caixa,
   ou ramal baixo (~0,30 m) subindo a cada ponto, como nos projetos de referência do escritório.
+- Antes de lançar, confira a unidade da planta (estado → escalaMetro): espessura de parede deve dar
+  0,10–0,25 m. Se não der, corrija com configurar {escalaMetro: 0.01 (cm) | 0.001 (mm) | 1 (m)}.
+- Ducha higiênica: inserirAparelho {chave: "ducha_higienica"} (sigla DH, 0,45 m).
+- Pontos alinhados: use o mesmo x ou y exato, ou o comando alinhar {ids, eixo}.
 - Alturas dos pontos: use as do projeto (inserirAparelho sem altura aplica a tabela do escritório:
   CH 2,10; LV 0,60; VS 0,30; VD 1,00; pia/tanque/mictório 1,10; TJ 0,60; bebedouro 0,88).
 - Registro de gaveta por ambiente, na descida a 1,80 m; registro de pressão do chuveiro a 1,00 m, na

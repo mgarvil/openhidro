@@ -16,7 +16,7 @@ export type NomeFerramenta = "selecionar" | "tubo" | "aparelho" | "reservatorio"
 export interface Opcoes { aparelhoEs: string; alturaTuboEs: number; declividadeEs: number; modeloCaixa: ElCaixaEsgoto["modelo"]; alturaCaixa: number;
   modeloRegistro: ElRegistro["modelo"]; alturaRegistro: number; alturaTubo: number; aparelho: string; alturaAparelho: number | null; alturaReservatorio: number; nivelAgua: number; colunaTopo: string | null }
 
-interface Snap { x: number; y: number; tipo: "ponto" | "meio" | "orto" | "planta" | "livre" }
+interface Snap { x: number; y: number; tipo: "ponto" | "meio" | "orto" | "planta" | "alinhado" | "livre"; guias?: [number, number][] }
 
 export interface ResultadoTrecho { rede: string; id: string; de: string; para: string; dn: number; ref: string; q: number; v: number; hf: number; L: number; ok: boolean }
 export interface ResultadoPonto { rede: string; no: string; el: string; pd: number; pmin: number | null; ok: boolean }
@@ -257,6 +257,18 @@ export class Editor {
     if (this.snapPlanta) {
       const q = this.pontaPlanta(x, y, tol * 0.8);
       if (q) return { x: q[0], y: q[1], tipo: "planta" };
+    }
+    // alinhamento: mesmo x ou mesmo y de um ponto já lançado (guia tracejada até a referência)
+    let ax: [number, number] | null = null, ay: [number, number] | null = null, dx = tol, dy = tol;
+    for (const [px, py] of pts) {
+      if (Math.abs(px - x) < dx) { dx = Math.abs(px - x); ax = [px, py]; }
+      if (Math.abs(py - y) < dy) { dy = Math.abs(py - y); ay = [px, py]; }
+    }
+    if (ax || ay) {
+      const guias: [number, number][] = [];
+      if (ax) guias.push(ax);
+      if (ay) guias.push(ay);
+      return { x: ax ? ax[0] : x, y: ay ? ay[1] : y, tipo: "alinhado", guias };
     }
     return { x, y, tipo: "livre" };
   }
@@ -664,6 +676,12 @@ export class Editor {
       else if (c.tipo === "meio") { ctx.beginPath(); ctx.moveTo(x - 6, y - 6); ctx.lineTo(x + 6, y + 6); ctx.moveTo(x - 6, y + 6); ctx.lineTo(x + 6, y - 6); ctx.stroke(); }
       else if (c.tipo === "planta") { ctx.strokeStyle = "#ff9f43"; ctx.beginPath(); ctx.moveTo(x, y - 7); ctx.lineTo(x + 7, y); ctx.lineTo(x, y + 7); ctx.lineTo(x - 7, y); ctx.closePath(); ctx.stroke(); }
       else if (c.tipo === "orto") { ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.stroke(); }
+      else if (c.tipo === "alinhado") {
+        ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = "#5fd3a5"; ctx.lineWidth = 1;
+        for (const g of c.guias ?? []) { const q = T(g[0], g[1]); ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(x, y); ctx.stroke(); }
+        ctx.restore(); ctx.strokeStyle = "#5fd3a5";
+        ctx.beginPath(); ctx.moveTo(x - 9, y); ctx.lineTo(x + 9, y); ctx.moveTo(x, y - 9); ctx.lineTo(x, y + 9); ctx.stroke();
+      }
       else { ctx.beginPath(); ctx.moveTo(x - 9, y); ctx.lineTo(x + 9, y); ctx.moveTo(x, y - 9); ctx.lineTo(x, y + 9); ctx.stroke(); }
     }
 

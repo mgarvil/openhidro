@@ -37,6 +37,9 @@ APARELHOS_AF: dict[str, AparelhoAF] = {a.chave: a for a in [
     AparelhoAF("bebedouro", "Bebedouro", 0.1, 0.10),
     AparelhoAF("bide", "Bidê (misturador, água fria)", 0.1, 0.10),
     AparelhoAF("chuveiro", "Chuveiro ou ducha (misturador, água fria)", 0.4, 0.20),
+    # Ducha higiênica: não consta da tabela de pesos; adotada por equivalência ao bidê (mesma função,
+    # mesma peça de utilização de 1/2"). PENDENTE de fonte normativa — ver docs/conferencia-normas.md.
+    AparelhoAF("ducha_higienica", "Ducha higiênica (equivalente ao bidê — conferir)", 0.1, 0.10),
     AparelhoAF("chuveiro_eletrico", "Chuveiro elétrico", 0.1, 0.10),
     AparelhoAF("lavadora", "Máquina de lavar pratos ou roupas", 1.0, 0.30),
     AparelhoAF("lavatorio", "Lavatório (torneira ou misturador, água fria)", 0.3, 0.15),
@@ -58,6 +61,7 @@ ALTURA_PONTO_M: dict[str, float] = {
     "banheira": 0.55,
     "bebedouro": 1.00,
     "bide": 0.30,
+    "ducha_higienica": 0.45,
     "chuveiro": 2.20,
     "chuveiro_eletrico": 2.20,
     "lavadora": 0.90,

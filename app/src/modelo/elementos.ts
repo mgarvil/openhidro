@@ -14,7 +14,7 @@ export const aparelho = (chave: string) => APARELHOS.find((a) => a.chave === cha
 /** Siglas usadas nos rótulos do desenho (convenção usual de projeto). */
 export const SIGLAS: Record<string, string> = {
   bacia_caixa_descarga: "VS", bacia_valvula_descarga: "VD", banheira: "BAN", bebedouro: "BEB", bide: "BD",
-  chuveiro: "CH", chuveiro_eletrico: "CH", lavadora: "MLR", lavatorio: "LV", mictorio_valvula: "MIC",
+  chuveiro: "CH", chuveiro_eletrico: "CH", ducha_higienica: "DH", lavadora: "MLR", lavatorio: "LV", mictorio_valvula: "MIC",
   mictorio_caixa: "MIC", mictorio_calha: "MIC", pia: "PIA", pia_torneira_eletrica: "PIA", tanque: "TQ",
   torneira_jardim: "TJ",
 };
