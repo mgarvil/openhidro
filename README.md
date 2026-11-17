@@ -24,7 +24,13 @@ pode montar, calcular e revisar a rede junto com o engenheiro.
 | Servidor MCP para o Claude | ✅ |
 | Água quente, águas pluviais (NBR 10844), coluna de ventilação, isométricos, IFC | 🔜 ver [roadmap](docs/roadmap.md) |
 
-## Instalação
+## Aplicativo de desktop (em construção)
+
+A interface gráfica fica em [`app/`](app/) — Tauri + TypeScript + Three.js. O instalador para
+Windows é gerado automaticamente pelo GitHub a cada versão (aba **Releases**). Arquitetura e
+etapas: [docs/arquitetura.md](docs/arquitetura.md) e [docs/roadmap.md](docs/roadmap.md).
+
+## Instalação do motor de cálculo (linha de comando / MCP)
 
 ```bash
 git clone https://github.com/mgarvil/openhidro.git

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenHidro</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/src/estilo.css" />
+  </head>
+  <body>
+    <header class="barra">
+      <div class="marca">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 2.5c-3.8 5-6.5 8.7-6.5 12a6.5 6.5 0 0 0 13 0c0-3.3-2.7-7-6.5-12z" fill="#2f9bff"/><path d="M9 15.5a3 3 0 0 0 3 3" stroke="#d6ecff" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+        <span>OpenHidro</span>
+      </div>
+      <nav class="grupo">
+        <button data-cmd="novo" title="Novo projeto (Ctrl+N)">Novo</button>
+        <button data-cmd="abrir" title="Abrir projeto (Ctrl+O)">Abrir</button>
+        <button data-cmd="salvar" title="Salvar projeto (Ctrl+S)">Salvar</button>
+      </nav>
+      <span class="sep"></span>
+      <nav class="grupo">
+        <button data-cmd="importarFundo" class="destaque" title="Importar planta de arquitetura (DXF)">Importar planta DXF</button>
+        <button data-cmd="zoomExtensao" title="Ver tudo (Home ou duplo clique no botão do meio)">Ver tudo</button>
+      </nav>
+      <div class="titulo" id="titulo">Projeto sem título</div>
+    </header>
+
+    <aside class="lateral">
+      <section class="painel">
+        <div class="painel-cab">
+          <h2>Camadas</h2>
+          <span class="contador" id="contCamadas"></span>
+        </div>
+        <div class="filtro">
+          <input id="filtroCamadas" type="search" placeholder="Filtrar camadas…" />
+          <button id="todasOn" title="Mostrar todas">Todas</button>
+          <button id="todasOff" title="Ocultar todas">Nenhuma</button>
+        </div>
+        <ul id="listaCamadas" class="lista"></ul>
+      </section>
+      <section class="painel info" id="infoDesenho"></section>
+    </aside>
+
+    <main id="area" class="area">
+      <div id="vazio" class="vazio">
+        <h1>Comece importando a planta de arquitetura</h1>
+        <p>Arraste um arquivo <b>DXF</b> para cá ou use <b>Importar planta DXF</b>.</p>
+        <p class="dica">Rolar = zoom · botão do meio ou espaço + arrastar = mover · Home = ver tudo</p>
+      </div>
+      <div id="carregando" class="carregando" hidden>Lendo desenho…</div>
+    </main>
+
+    <footer class="status">
+      <span id="coord">x —  y —</span>
+      <span id="unidade"></span>
+      <span id="escalaVista"></span>
+      <span id="mensagem" class="mensagem"></span>
+      <span class="versao">OpenHidro 0.1 · M1</span>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
