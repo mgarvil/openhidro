@@ -1,23 +1,22 @@
 name: app-windows
-# Gera o instalador do aplicativo para Windows.
-# - a cada push em main que mexa em app/: compila e guarda o instalador como artefato
-# - ao criar uma tag app-vX.Y.Z: publica uma versão (Release) com o instalador para download
+# Gera o instalador do aplicativo para Windows a cada push em main que mexa em app/ e o publica
+# na aba Releases como "app-vX.Y.Z" (versão lida de app/src-tauri/tauri.conf.json).
 on:
   push:
     branches: [main]
     paths: ["app/**", ".github/workflows/app-windows.yml"]
-    tags: ["app-v*"]
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: app-windows
+  cancel-in-progress: true
+
 jobs:
   windows:
     runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: app
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,25 +29,19 @@ jobs:
         with:
           workspaces: app/src-tauri -> target
       - run: npm ci
-      - name: Compilar instalador
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        run: npx tauri build
-      - uses: actions/upload-artifact@v4
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        with:
-          name: OpenHidro-instalador-windows
-          path: |
-            app/src-tauri/target/release/bundle/nsis/*.exe
-            app/src-tauri/target/release/bundle/msi/*.msi
-      - name: Publicar versão
-        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        working-directory: app
+      - name: Compilar e publicar instalador
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: app
-          tagName: ${{ github.ref_name }}
-          releaseName: "OpenHidro ${{ github.ref_name }}"
-          releaseBody: "Instalador do OpenHidro para Windows. Baixe o arquivo OpenHidro_..._x64-setup.exe e execute."
+          tagName: app-v__VERSION__
+          releaseName: "OpenHidro app v__VERSION__"
+          releaseBody: |
+            Instalador do OpenHidro para Windows.
+            Baixe **OpenHidro_…_x64-setup.exe** (recomendado — instala só para o seu usuário, sem administrador) e execute.
+            O Windows pode avisar que o editor não é verificado: clique em "Mais informações" → "Executar assim mesmo".
           releaseDraft: false
           prerelease: true
+          uploadWorkflowArtifacts: true
